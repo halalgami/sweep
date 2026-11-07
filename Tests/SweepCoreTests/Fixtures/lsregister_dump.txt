@@ -1,0 +1,31 @@
+Checking data integrity......done.
+Status: Database is seeded.
+--------------------------------------------------------------------------------
+bundle id:                  Chrome Helper (GPU) (0xe20)
+container:                  / (0x4)
+path:                       /Applications/Google Chrome.app/Contents/Frameworks/Helpers/Google Chrome Helper (GPU).app (0x1fec)
+directory:                  /Applications
+name:                       Chrome Helper (GPU)
+identifier:                 com.google.Chrome.helper
+--------------------------------------------------------------------------------
+bundle id:                  Orphan Record (0xe21)
+path:                       /Applications/NoIdentifier.app (0x1fed)
+name:                       NoIdentifier
+--------------------------------------------------------------------------------
+bundle id:                  The Witcher 3 (0xe22)
+path:                       /Applications/The Witcher 3.app (0x1fee)
+name:                       The Witcher 3
+identifier:                 com.gog.witcher3
+--------------------------------------------------------------------------------
+bundle id:                  GOG Galaxy (0xe23)
+path:                       /Users/me/.Trash/GOG Galaxy.app (0x1fef)
+name:                       GOG Galaxy
+identifier:                 com.gog.galaxy
+--------------------------------------------------------------------------------
+claim id:                   Something else (0x2000)
+localizedDescription:       "en" = "Thing"
+--------------------------------------------------------------------------------
+bundle id:                  Notes App (0xe24)
+path:                       /Users/me/.Trash/Notely.app (0x1ff0)
+name:                       Notely
+identifier:                 io.notely.app

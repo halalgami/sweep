@@ -56,7 +56,16 @@ public protocol Detector: Sendable {
 public enum DetectorRegistry {
     public static func detector(for kind: RuleKind) -> Detector {
         switch kind {
-        case .pathCache, .texlive, .conda: PathDetector()
+        case .pathCache, .texlive: PathDetector()
+        case .conda: CondaDetector()
+        case .simRuntimes: SimRuntimeDetector()
+        case .vms: VMDetector()
+        case .llmModels: LLMModelsDetector()
+        case .largeFiles: LargeFilesDetector()
+        case .installers: InstallersDetector()
+        case .xcodeOldDerivedData: DeviceSupportDetector()
+        case .sensitiveData: SensitiveDataDetector()
+        case .leftovers: LeftoversDetector()
         case .toolCache: ToolCacheDetector()
         case .libraryCaches: LibraryCachesDetector()
         case .vscodeExtensions: EditorExtensionsDetector()
@@ -64,7 +73,6 @@ public enum DetectorRegistry {
         case .protectedPaths: ProtectedDetector()
         case .projectArtifacts: ProjectArtifactsDetector()
         case .gitWorktrees: GitWorktreeDetector()
-        default: EmptyDetector()
         }
     }
 }
