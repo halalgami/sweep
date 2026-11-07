@@ -1,1 +1,656 @@
-{"version":1,"rules":[]}
+{
+ "version": 1,
+ "rules": [
+  {
+   "id": "cache.uv",
+   "title": "uv cache",
+   "tier": 1,
+   "kind": "toolCache",
+   "action": {
+    "type": "tool",
+    "command": [
+     "cache",
+     "prune"
+    ]
+   },
+   "rebuildCost": "low",
+   "explanation": "uv's package cache. `uv cache prune` removes unused entries and is safe while uv is running.",
+   "tool": "uv",
+   "paths": [
+    "~/.cache/uv"
+   ],
+   "routine": true,
+   "rebuildHint": "uv re-downloads packages on next install",
+   "params": {
+    "dirCommand": "cache dir"
+   }
+  },
+  {
+   "id": "cache.npm",
+   "title": "npm cache",
+   "tier": 1,
+   "kind": "toolCache",
+   "action": {
+    "type": "tool",
+    "command": [
+     "cache",
+     "clean",
+     "--force"
+    ]
+   },
+   "rebuildCost": "low",
+   "explanation": "npm's download cache. Rebuilt automatically on the next install.",
+   "tool": "npm",
+   "paths": [
+    "~/.npm/_cacache"
+   ],
+   "routine": true,
+   "rebuildHint": "npm re-downloads packages on next install"
+  },
+  {
+   "id": "cache.npx",
+   "title": "npx package cache",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Packages fetched by npx / npm exec. Only cleared when no npx or npm exec process is running.",
+   "paths": [
+    "~/.npm/_npx"
+   ],
+   "requiresNoProcess": [
+    "npm exec",
+    "(^|/)npx( |$)"
+   ],
+   "rebuildHint": "npx re-downloads tools on next run"
+  },
+  {
+   "id": "cache.pnpm",
+   "title": "pnpm store",
+   "tier": 1,
+   "kind": "toolCache",
+   "action": {
+    "type": "tool",
+    "command": [
+     "store",
+     "prune"
+    ]
+   },
+   "rebuildCost": "low",
+   "explanation": "pnpm's content-addressable store. `pnpm store prune` removes packages no project references.",
+   "tool": "pnpm",
+   "paths": [
+    "~/Library/pnpm/store",
+    "~/.local/share/pnpm/store"
+   ],
+   "routine": true
+  },
+  {
+   "id": "cache.bun",
+   "title": "bun install cache",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "bun's package cache.",
+   "paths": [
+    "~/.bun/install/cache"
+   ]
+  },
+  {
+   "id": "cache.pip",
+   "title": "pip cache",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "pip's wheel and HTTP cache.",
+   "paths": [
+    "~/Library/Caches/pip"
+   ]
+  },
+  {
+   "id": "cache.brew",
+   "title": "Homebrew downloads",
+   "tier": 1,
+   "kind": "toolCache",
+   "action": {
+    "type": "tool",
+    "command": [
+     "cleanup",
+     "-s"
+    ]
+   },
+   "rebuildCost": "low",
+   "explanation": "Old Homebrew downloads and outdated versions. `brew cleanup -s` also scrubs the download cache.",
+   "tool": "brew",
+   "paths": [
+    "~/Library/Caches/Homebrew"
+   ],
+   "routine": true
+  },
+  {
+   "id": "cache.gradle",
+   "title": "Gradle caches",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Gradle dependency and build caches.",
+   "paths": [
+    "~/.gradle/caches"
+   ],
+   "requiresNoProcess": [
+    "GradleDaemon|gradle"
+   ]
+  },
+  {
+   "id": "cache.go",
+   "title": "Go build cache",
+   "tier": 1,
+   "kind": "toolCache",
+   "action": {
+    "type": "tool",
+    "command": [
+     "clean",
+     "-cache"
+    ]
+   },
+   "rebuildCost": "low",
+   "explanation": "Go's compiled build cache. Rebuilt on next build.",
+   "tool": "go",
+   "paths": [
+    "~/Library/Caches/go-build"
+   ],
+   "routine": true,
+   "params": {
+    "dirCommand": "env GOCACHE"
+   }
+  },
+  {
+   "id": "cache.cargo",
+   "title": "Cargo registry cache",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Downloaded crate archives and extracted sources.",
+   "paths": [
+    "~/.cargo/registry/cache",
+    "~/.cargo/registry/src"
+   ],
+   "requiresNoProcess": [
+    "(^|/)cargo "
+   ]
+  },
+  {
+   "id": "cache.library",
+   "title": "App caches",
+   "tier": 1,
+   "kind": "libraryCaches",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Per-app caches in ~/Library/Caches. Apps rebuild them. Apple-protected caches can't be removed and are skipped, not reported as failures.",
+   "paths": [
+    "~/Library/Caches"
+   ],
+   "minBytes": 50000000
+  },
+  {
+   "id": "cache.dotcache.puppeteer",
+   "title": "Puppeteer browsers",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Cache in ~/.cache/puppeteer. Safe to remove; re-downloads Chromium on next run.",
+   "paths": [
+    "~/.cache/puppeteer"
+   ],
+   "rebuildHint": "re-downloads Chromium on next run"
+  },
+  {
+   "id": "cache.dotcache.playwright",
+   "title": "Playwright browsers",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Cache in ~/Library/Caches/ms-playwright. Safe to remove; re-downloads browsers on next `playwright install`.",
+   "paths": [
+    "~/Library/Caches/ms-playwright",
+    "~/.cache/ms-playwright"
+   ],
+   "rebuildHint": "re-downloads browsers on next `playwright install`"
+  },
+  {
+   "id": "cache.dotcache.huggingface",
+   "title": "Hugging Face models",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "high",
+   "explanation": "Cache in ~/.cache/huggingface. Safe to remove; re-downloads models, often many GB.",
+   "paths": [
+    "~/.cache/huggingface"
+   ],
+   "rebuildHint": "re-downloads models, often many GB"
+  },
+  {
+   "id": "cache.dotcache.torch",
+   "title": "PyTorch hub cache",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "high",
+   "explanation": "Cache in ~/.cache/torch. Safe to remove; re-downloads model weights.",
+   "paths": [
+    "~/.cache/torch"
+   ],
+   "rebuildHint": "re-downloads model weights"
+  },
+  {
+   "id": "cache.dotcache.whisper",
+   "title": "Whisper models",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "high",
+   "explanation": "Cache in ~/.cache/whisper. Safe to remove; re-downloads speech models.",
+   "paths": [
+    "~/.cache/whisper"
+   ],
+   "rebuildHint": "re-downloads speech models"
+  },
+  {
+   "id": "cache.dotcache.codex-runtimes",
+   "title": "Codex runtimes",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Cache in ~/.cache/codex-runtimes. Safe to remove; re-downloads on next Codex run.",
+   "paths": [
+    "~/.cache/codex-runtimes"
+   ],
+   "rebuildHint": "re-downloads on next Codex run"
+  },
+  {
+   "id": "cache.chrome-optguide",
+   "title": "Chrome on-device AI model",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "high",
+   "explanation": "Chrome's optimization-guide model (~4 GB). Chrome re-downloads it when needed.",
+   "paths": [
+    "~/Library/Application Support/Google/Chrome/OptGuideOnDeviceModel"
+   ],
+   "requiresAppQuit": [
+    "Google Chrome.app/Contents/MacOS/Google Chrome$"
+   ],
+   "rebuildHint": "Chrome re-downloads ~4 GB"
+  },
+  {
+   "id": "cache.xcode-deriveddata",
+   "title": "Xcode DerivedData",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Xcode's build products and indexes. Rebuilt on next build.",
+   "paths": [
+    "~/Library/Developer/Xcode/DerivedData"
+   ],
+   "routine": true,
+   "requiresAppQuit": [
+    "Xcode.app/Contents/MacOS/Xcode"
+   ],
+   "rebuildHint": "next Xcode build is a full build"
+  },
+  {
+   "id": "cache.xcode-previews",
+   "title": "Xcode Previews",
+   "tier": 1,
+   "kind": "pathCache",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Old SwiftUI preview simulators and builds.",
+   "paths": [
+    "~/Library/Developer/Xcode/UserData/Previews"
+   ],
+   "requiresAppQuit": [
+    "Xcode.app/Contents/MacOS/Xcode"
+   ]
+  },
+  {
+   "id": "docker.builder",
+   "title": "Docker build cache",
+   "tier": 1,
+   "kind": "docker",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "BuildKit cache from `docker build`. Pruned per builder by name. Never touches containers or volumes.",
+   "tool": "docker",
+   "params": {
+    "op": "builder"
+   },
+   "routine": true,
+   "rebuildHint": "next image build re-runs uncached steps"
+  },
+  {
+   "id": "docker.dangling",
+   "title": "Dangling Docker images",
+   "tier": 1,
+   "kind": "docker",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Untagged image layers no tag points to.",
+   "tool": "docker",
+   "params": {
+    "op": "dangling"
+   }
+  },
+  {
+   "id": "docker.trim",
+   "title": "Shrink Docker disk image",
+   "tier": 1,
+   "kind": "docker",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "none",
+   "explanation": "Docker's VM disk keeps space after deletes. fstrim inside the VM hands it back to macOS.",
+   "tool": "docker",
+   "params": {
+    "op": "trim"
+   },
+   "defaultSelected": false
+  },
+  {
+   "id": "docker.images",
+   "title": "Unused Docker images",
+   "tier": 3,
+   "kind": "docker",
+   "action": {
+    "type": "tool"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Tagged images no container uses. Re-pulled or rebuilt when needed.",
+   "tool": "docker",
+   "params": {
+    "op": "images"
+   }
+  },
+  {
+   "id": "editor.vscode-extensions",
+   "title": "Old VS Code extension versions",
+   "tier": 1,
+   "kind": "vscodeExtensions",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "VS Code keeps old extension versions after updates. Only the newest of each is kept.",
+   "paths": [
+    "~/.vscode/extensions"
+   ],
+   "requiresAppQuit": [
+    "Visual Studio Code.app/Contents/MacOS/(Code|Electron)"
+   ]
+  },
+  {
+   "id": "editor.cursor-extensions",
+   "title": "Old Cursor extension versions",
+   "tier": 1,
+   "kind": "vscodeExtensions",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Cursor keeps old extension versions after updates. Only the newest of each is kept.",
+   "paths": [
+    "~/.cursor/extensions"
+   ],
+   "requiresAppQuit": [
+    "Cursor.app/Contents/MacOS/Cursor"
+   ]
+  },
+  {
+   "id": "artifact.projects",
+   "title": "Idle project build folders",
+   "tier": 2,
+   "kind": "projectArtifacts",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Build output and dependencies in projects you haven't touched recently. Rebuilt by the project's install/build command.",
+   "params": {
+    "artifacts": "node_modules,.next,.open-next,.sst,target,.venv,venv,.turbo,dist,__pycache__,.transformers_cache"
+   }
+  },
+  {
+   "id": "git.worktrees",
+   "title": "Finished git worktrees",
+   "tier": 2,
+   "kind": "gitWorktrees",
+   "action": {
+    "type": "tool"
+   },
+   "rebuildCost": "low",
+   "explanation": "Clean worktrees with no unpushed commits. `git worktree remove` keeps the branch."
+  },
+  {
+   "id": "decision.simruntimes",
+   "title": "Simulator runtimes",
+   "tier": 3,
+   "kind": "simRuntimes",
+   "action": {
+    "type": "tool"
+   },
+   "rebuildCost": "high",
+   "explanation": "Xcode simulator runtimes. Re-downloadable from Xcode > Settings > Components.",
+   "tool": "xcrun",
+   "rebuildHint": "re-download from Xcode (several GB)"
+  },
+  {
+   "id": "decision.vms",
+   "title": "Virtual machines",
+   "tier": 3,
+   "kind": "vms",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "high",
+   "explanation": "Parallels, UTM and VMware virtual machines. Your data lives inside; moved to the Trash, not deleted.",
+   "paths": [
+    "~/Parallels/*.pvm",
+    "~/Library/Containers/com.utmapp.UTM/Data/Documents/*.utm",
+    "~/Virtual Machines.localized/*.vmwarevm",
+    "~/Virtual Machines/*.vmwarevm"
+   ]
+  },
+  {
+   "id": "decision.texlive",
+   "title": "TeX Live",
+   "tier": 3,
+   "kind": "texlive",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "high",
+   "explanation": "A full TeX distribution. Reinstall from MacTeX if you need LaTeX again.",
+   "paths": [
+    "/usr/local/texlive/*",
+    "~/Library/texlive/*"
+   ]
+  },
+  {
+   "id": "decision.conda",
+   "title": "Anaconda / Miniconda",
+   "tier": 3,
+   "kind": "conda",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "high",
+   "explanation": "A conda Python distribution with its environments.",
+   "paths": [
+    "~/anaconda3",
+    "~/miniconda3",
+    "~/miniforge3",
+    "~/mambaforge",
+    "/opt/anaconda3",
+    "/opt/miniconda3",
+    "/opt/homebrew/anaconda3",
+    "/opt/homebrew/Caskroom/miniconda"
+   ]
+  },
+  {
+   "id": "decision.llm-models",
+   "title": "Local AI models",
+   "tier": 3,
+   "kind": "llmModels",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "high",
+   "explanation": "Models downloaded by Ollama or LM Studio. Duplicates are flagged.",
+   "paths": [
+    "~/.ollama/models",
+    "~/.lmstudio/models",
+    "~/.cache/lm-studio/models"
+   ]
+  },
+  {
+   "id": "decision.large-files",
+   "title": "Large files",
+   "tier": 3,
+   "kind": "largeFiles",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "high",
+   "explanation": "Files over 1 GB in Downloads and Documents.",
+   "paths": [
+    "~/Downloads",
+    "~/Documents"
+   ],
+   "defaultSelected": false
+  },
+  {
+   "id": "decision.installers",
+   "title": "Old installers",
+   "tier": 3,
+   "kind": "installers",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "low",
+   "explanation": "Disk images, packages and archives in Downloads older than 30 days.",
+   "paths": [
+    "~/Downloads"
+   ],
+   "params": {
+    "extensions": "dmg,pkg,zip,xip",
+    "olderThanDays": "30"
+   }
+  },
+  {
+   "id": "decision.xcode-old-deriveddata",
+   "title": "Old Xcode device support",
+   "tier": 3,
+   "kind": "xcodeOldDerivedData",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "medium",
+   "explanation": "Debug symbols for old iOS/watchOS versions. Xcode re-copies them when you connect a device on that version.",
+   "paths": [
+    "~/Library/Developer/Xcode/iOS DeviceSupport",
+    "~/Library/Developer/Xcode/watchOS DeviceSupport",
+    "~/Library/Developer/Xcode/tvOS DeviceSupport",
+    "~/Library/Developer/Xcode/visionOS DeviceSupport"
+   ],
+   "params": {
+    "keepNewest": "2"
+   }
+  },
+  {
+   "id": "decision.sensitive-data",
+   "title": "Possible personal data in projects",
+   "tier": 3,
+   "kind": "sensitiveData",
+   "action": {
+    "type": "reveal"
+   },
+   "rebuildCost": "high",
+   "explanation": "Large data extracts (CSV, Excel, Parquet, JSON) inside project folders may hold personal data. Consider moving them to approved storage. Never uploaded, never sent to the AI.",
+   "defaultSelected": false,
+   "params": {
+    "extensions": "csv,tsv,xlsx,xls,parquet,json,jsonl,ndjson"
+   }
+  },
+  {
+   "id": "leftovers.trash",
+   "title": "Leftovers of trashed apps",
+   "tier": 3,
+   "kind": "leftovers",
+   "action": {
+    "type": "trash"
+   },
+   "rebuildCost": "low",
+   "explanation": "Support files left behind by apps in your Trash."
+  },
+  {
+   "id": "protected.paths",
+   "title": "Protected by macOS",
+   "tier": 4,
+   "kind": "protectedPaths",
+   "action": {
+    "type": "none"
+   },
+   "rebuildCost": "none",
+   "explanation": "Shown so the numbers add up. macOS protects these or deleting them frees nothing.",
+   "params": {
+    "clonePatterns": "/private/var/folders/*/*/X/*code_sign_clone*",
+    "sipPaths": "/Library/Developer/CoreSimulator/Caches/dyld"
+   }
+  }
+ ]
+}
