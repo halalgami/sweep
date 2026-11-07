@@ -16,7 +16,30 @@ public struct RuleSet: Sendable {
     public static let userOverrideURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/Sweep/rules.json")
 
+    static let resourceBundleName = "Sweep_SweepCore.bundle"
+
+    /// Finds rules.json without relying on `Bundle.module` (which crashes when the bundle isn't where SwiftPM expects,
+    /// e.g. for the agent binary inside Sweep.app/Contents/MacOS).
+    static func locateBundledRules(executableDir: URL?, mainResources: URL?) -> URL? {
+        var dirs: [URL] = []
+        if let mainResources { dirs.append(mainResources) }
+        if let exe = executableDir {
+            dirs.append(exe)
+            dirs.append(exe.deletingLastPathComponent().appendingPathComponent("Resources"))
+        }
+        for d in dirs {
+            let bundle = d.appendingPathComponent(resourceBundleName)
+            for candidate in [bundle.appendingPathComponent("rules.json"), bundle.appendingPathComponent("Contents/Resources/rules.json")]
+            where FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return nil
+    }
+
     public static func bundledData() throws -> Data {
+        let exeDir = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
+        if let url = locateBundledRules(executableDir: exeDir, mainResources: Bundle.main.resourceURL) {
+            return try Data(contentsOf: url)
+        }
         guard let url = Bundle.module.url(forResource: "rules", withExtension: "json") else {
             throw RuleSetError.invalid("bundled rules.json missing")
         }

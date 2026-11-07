@@ -72,3 +72,19 @@ import Testing
         }
     }
 }
+
+@Suite struct RulesBundleLookupTests {
+    @Test func findsRulesInAppResourcesFromAgentInMacOSDir() throws {
+        let t = TempDir()
+        let res = t.dir("Sweep.app/Contents/Resources/Sweep_SweepCore.bundle")
+        try "{}".write(toFile: res + "/rules.json", atomically: true, encoding: .utf8)
+        let exeDir = URL(fileURLWithPath: t.dir("Sweep.app/Contents/MacOS"))
+        let url = RuleSet.locateBundledRules(executableDir: exeDir, mainResources: nil)
+        #expect(url?.path.hasSuffix("Contents/Resources/Sweep_SweepCore.bundle/rules.json") == true)
+    }
+
+    @Test func returnsNilWhenNothingFound() {
+        let t = TempDir()
+        #expect(RuleSet.locateBundledRules(executableDir: t.url, mainResources: nil) == nil)
+    }
+}
