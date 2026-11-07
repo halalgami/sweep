@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Sweep</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Sweep asks Finder for the list of items in your Trash so it can find files left behind by deleted apps, and to empty the Trash when you ask.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Sweep looks on the Desktop for idle project build folders. It never reads file contents.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Sweep looks in Documents for idle project build folders and large files. It never reads file contents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Sweep looks in Downloads for old installers and large files. It never reads file contents.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© halalgami Technological Solutions</string>
+</dict>
+</plist>

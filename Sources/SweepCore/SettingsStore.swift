@@ -5,7 +5,13 @@ public enum SettingsStore {
     public static let suiteName = "dev.algamthe.sweep"
     static let key = "scanSettings"
 
-    public static var defaults: UserDefaults { UserDefaults(suiteName: suiteName) ?? .standard }
+    /// Inside Sweep.app (the app itself, or the agent embedded in it) the app's own domain is `.standard`;
+    /// macOS ignores a suite named after the current bundle. Elsewhere (CLI) read the app's domain as a suite.
+    static func usesStandardDomain(mainBundleID: String?) -> Bool { mainBundleID == suiteName }
+
+    public static var defaults: UserDefaults {
+        usesStandardDomain(mainBundleID: Bundle.main.bundleIdentifier) ? .standard : (UserDefaults(suiteName: suiteName) ?? .standard)
+    }
 
     public static func load() -> ScanSettings {
         guard let data = defaults.data(forKey: key), let s = try? JSONDecoder().decode(ScanSettings.self, from: data) else {
