@@ -44,7 +44,7 @@ import Testing
 
 @Suite struct ExecutorTests {
     func executor(home: String, runner: CommandRunner = ProcessCommandRunner(), log: URL) -> Executor {
-        var ctx = makeContext(tools: ["git"])
+        var ctx = makeContext(tools: ["git", "uv"])
         ctx.home = home
         ctx.probe = RealFileSystemProbe()
         ctx.runner = runner

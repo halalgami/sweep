@@ -31,10 +31,9 @@ public struct SafetyGuard: Sendable {
         case let .dockerCommand(args):
             return Self.dockerAllowed(args) ? .allowed : .blocked("That Docker command isn't on Sweep's allow list")
         case let .toolCommand(exe, _):
-            guard Self.allowedTools.contains((exe as NSString).lastPathComponent) else { return .blocked("\(exe) isn't on Sweep's allow list") }
-            guard FileManager.default.isExecutableFile(atPath: exe) || context.runner is FakeCommandRunner else {
-                return .blocked("\((exe as NSString).lastPathComponent) is no longer installed")
-            }
+            let tool = (exe as NSString).lastPathComponent
+            guard Self.allowedTools.contains(tool) else { return .blocked("\(exe) isn't on Sweep's allow list") }
+            guard context.tools.path(for: tool) == exe else { return .blocked("\(tool) is no longer installed at \(exe)") }
             return .allowed
         default:
             return await checkPath(item)
