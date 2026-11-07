@@ -1,7 +1,11 @@
 import Foundation
 
 /// Resolves tool names to absolute paths without consulting a shell.
-public struct ToolLocator: Sendable {
+public protocol ToolLocating: Sendable {
+    func path(for tool: String) -> String?
+}
+
+public struct ToolLocator: ToolLocating {
     public let searchPaths: [String]
 
     public init(searchPaths: [String]? = nil, home: String = NSHomeDirectory()) {

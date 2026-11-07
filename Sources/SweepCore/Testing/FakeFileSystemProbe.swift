@@ -49,6 +49,13 @@ public final class FakeFileSystemProbe: FileSystemProbe, @unchecked Sendable {
         lock.withLock { entries = entries.filter { $0.key != path && !$0.key.hasPrefix(path + "/") } }
     }
 
+    /// Paths under these prefixes behave as admin-owned (not deletable by the user).
+    public var readOnlyPrefixes: [String] = ["/usr/", "/Library/", "/System/", "/opt/", "/private/var/db/"]
+
+    public func isDeletable(_ path: String) -> Bool {
+        !readOnlyPrefixes.contains { path.hasPrefix($0) }
+    }
+
     public func meta(_ path: String) -> FileMeta? { lock.withLock { entries[path] } }
 
     public func children(_ path: String) -> [String]? {

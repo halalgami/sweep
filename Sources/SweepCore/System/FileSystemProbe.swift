@@ -32,6 +32,8 @@ public protocol FileSystemProbe: Sendable {
     func meta(_ path: String) -> FileMeta?
     /// Child names (not full paths); nil when the directory can't be read.
     func children(_ path: String) -> [String]?
+    /// Whether the current user can remove `path` (its parent directory is writable).
+    func isDeletable(_ path: String) -> Bool
 }
 
 public extension FileSystemProbe {
@@ -55,6 +57,10 @@ public struct RealFileSystemProbe: FileSystemProbe {
             mtime: Date(timeIntervalSince1970: TimeInterval(st.st_mtimespec.tv_sec)
                         + TimeInterval(st.st_mtimespec.tv_nsec) / 1e9),
             linkCount: st.st_nlink)
+    }
+
+    public func isDeletable(_ path: String) -> Bool {
+        access((path as NSString).deletingLastPathComponent, W_OK) == 0
     }
 
     public func children(_ path: String) -> [String]? {
