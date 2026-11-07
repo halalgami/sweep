@@ -62,6 +62,8 @@ public enum DetectorRegistry {
         case .vscodeExtensions: EditorExtensionsDetector()
         case .docker: DockerDetector()
         case .protectedPaths: ProtectedDetector()
+        case .projectArtifacts: ProjectArtifactsDetector()
+        case .gitWorktrees: GitWorktreeDetector()
         default: EmptyDetector()
         }
     }
