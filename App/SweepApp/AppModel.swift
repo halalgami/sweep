@@ -17,7 +17,9 @@ final class AppModel {
     var scanPhase = ""
     var scanStartedAt: Date?
     var warnings: [String] = []
+    var measuringFolders = false
     private var scanner: SweepScanner?
+    private var folderCancel = CancelBox()
 
     // Navigation + plan/execute/verify
     var screen: Screen = .dashboard
@@ -119,7 +121,8 @@ final class AppModel {
         scanStartedAt = Date()
         warnings = []
         rules = RuleSet.loadOrBundled()
-        let s = SweepScanner(context: context, rules: rules)
+        // Phase 1: findings (fast). Phase 2: folder sizes for the treemap, in the background.
+        let s = SweepScanner(context: context, rules: rules, includeBuckets: false)
         scanner = s
         Task {
             for await event in s.scan() {
@@ -133,15 +136,48 @@ final class AppModel {
                     try? history?.record(r)
                     refreshHistory()
                     checkAlerts(report: r, previous: previous)
+                    measureFolders()
                 case .item: break
                 }
             }
             scanning = false
             scanPhase = ""
+            #if DEBUG
+            if DebugSnapshot.prefix != nil {
+                if ProcessInfo.processInfo.environment["SWEEP_APPEARANCE"] == "light" { NSApp.appearance = NSAppearance(named: .aqua) }
+                while measuringFolders { try? await Task.sleep(for: .seconds(1)) }
+                try? await Task.sleep(for: .seconds(2))
+                DebugSnapshot.capture("dashboard")
+                if let id = (report?.items.first { $0.tier == .needsDecision })?.id { selectedItem = item(id: id) }
+                try? await Task.sleep(for: .seconds(1)); DebugSnapshot.capture("detail"); selectedItem = nil
+                openPlan(); try? await Task.sleep(for: .seconds(1)); DebugSnapshot.capture("plan")
+                screen = .dashboard; plan = nil
+            }
+            #endif
         }
     }
 
-    func cancelScan() { scanner?.cancel() }
+    func cancelScan() { scanner?.cancel(); folderCancel.cancel() }
+
+    func measureFolders() {
+        guard !measuringFolders else { return }
+        measuringFolders = true
+        folderCancel = CancelBox()
+        let cancel = folderCancel
+        let accounting = VolumeAccounting(runner: ProcessCommandRunner(), probe: RealFileSystemProbe(), home: home)
+        Task {
+            let buckets = await Task.detached(priority: .utility) {
+                accounting.buckets(progress: { _ in }, shouldCancel: { cancel.isCancelled })
+            }.value
+            if !cancel.isCancelled, var r = report {
+                r.buckets = buckets
+                let dataUsed = r.apfs.first { $0.role == "Data" }?.usedBytes ?? r.volume.usedBytes
+                r.unaccountedBytes = VolumeAccounting.unaccounted(used: dataUsed, buckets: buckets)
+                report = r
+            }
+            measuringFolders = false
+        }
+    }
 
     func refreshHistory() {
         decisions = (try? history?.decisions()) ?? [:]
@@ -353,4 +389,11 @@ final class AppModel {
         content.body = bodies.prefix(3).joined(separator: " ")
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+final class CancelBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    func cancel() { lock.withLock { flag = true } }
+    var isCancelled: Bool { lock.withLock { flag } }
 }

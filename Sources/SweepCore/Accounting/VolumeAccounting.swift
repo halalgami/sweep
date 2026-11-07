@@ -48,16 +48,22 @@ public struct VolumeAccounting: Sendable {
             var inaccessible = 0
             var total: Int64 = meta.allocatedSize
             if let paths = probe.childPaths(root) {
-                for p in paths {
-                    if shouldCancel?() == true { break }
-                    guard let m = probe.meta(p), !m.isSymlink, m.device == meta.device,
-                          !SizeCalculator.defaultExcluded.contains(p) else { continue }
+                let candidates = paths.filter { p in
+                    guard let m = probe.meta(p) else { return false }
+                    return !m.isSymlink && m.device == meta.device && !SizeCalculator.defaultExcluded.contains(p)
+                }
+                // Measure top-level children in parallel; the walk is I/O bound.
+                let box = MeasureBox()
+                DispatchQueue.concurrentPerform(iterations: candidates.count) { i in
+                    if shouldCancel?() == true { return }
+                    let p = candidates[i]
                     let r = sizer.measure(p, shouldCancel: shouldCancel)
+                    box.append((p, r, probe.meta(p)?.isDirectory ?? false))
+                }
+                for (p, r, isDir) in box.values {
                     total += r.physical
                     inaccessible += r.inaccessible
-                    if m.isDirectory {
-                        kids.append(Bucket(path: p, physicalBytes: r.physical, inaccessible: r.inaccessible, children: []))
-                    }
+                    if isDir { kids.append(Bucket(path: p, physicalBytes: r.physical, inaccessible: r.inaccessible, children: [])) }
                 }
             } else {
                 inaccessible += 1
@@ -90,4 +96,11 @@ public struct VolumeAccounting: Sendable {
 
     public static let fullDiskAccessSettingsURL =
         URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!
+}
+
+final class MeasureBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [(String, SizeResult, Bool)] = []
+    func append(_ v: (String, SizeResult, Bool)) { lock.withLock { items.append(v) } }
+    var values: [(String, SizeResult, Bool)] { lock.withLock { items } }
 }

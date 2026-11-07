@@ -38,14 +38,14 @@ public struct SizeCalculator: Sendable {
         while let dir = stack.popLast() {
             visited += 1
             if visited % 512 == 0, shouldCancel?() == true { break }
-            guard let names = probe.children(dir) else { result.inaccessible += 1; continue }
-            for name in names {
-                let path = dir == "/" ? "/" + name : dir + "/" + name
-                guard let m = probe.meta(path) else { continue }
+            guard let entries = probe.entries(dir) else { result.inaccessible += 1; continue }
+            for e in entries {
+                let m = e.meta
                 if m.isSymlink { continue }
                 if m.device != rootMeta.device { continue }
+                let path = dir == "/" ? "/" + e.name : dir + "/" + e.name
                 if m.isDirectory {
-                    if skipDirNames.contains(name) || excludedPaths.contains(path) { continue }
+                    if skipDirNames.contains(e.name) || excludedPaths.contains(path) { continue }
                     account(m, &result, &seen)
                     stack.append(path)
                 } else {

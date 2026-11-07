@@ -264,10 +264,10 @@ struct TreemapPanel: View {
         }
         tiles.sort { $0.bytes > $1.bytes }
         return VStack(alignment: .leading, spacing: 8) {
-            GroovedHeader(title: drill.map { "Where it went: \($0.path.replacingOccurrences(of: model.home, with: "~"))" } ?? "Where it went",
+            GroovedHeader(title: drill.map { "Where it went: \($0.path.replacingOccurrences(of: model.home, with: "~"))" } ?? (model.measuringFolders ? "Where it went (measuring…)" : "Where it went"),
                           trailing: drill == nil ? nil : AnyView(Button("Back") { drill = nil }.buttonStyle(PlatinumButtonStyle())))
             if tiles.isEmpty {
-                Text(model.scanning ? "Measuring folders… this is the slow part." : "Run a scan to see folder sizes.")
+                Text(model.scanning || model.measuringFolders ? "Measuring folders… this takes a minute or two. Everything else is ready." : "Run a scan to see folder sizes.")
                     .font(Fonts.ui(13)).foregroundStyle(p.secondary).frame(maxWidth: .infinity, minHeight: 240).platinumWell()
             } else {
                 GeometryReader { geo in
