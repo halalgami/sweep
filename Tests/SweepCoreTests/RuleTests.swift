@@ -62,3 +62,13 @@ import Testing
         #expect(PathPattern.expand("~/missing", home: "/Users/me", probe: fake).isEmpty)
     }
 }
+
+@Suite struct RuleOrderTests {
+    @Test func genericLibraryRuleComesAfterSpecificCacheRules() throws {
+        let ids = try RuleSet.bundled().rules.map(\.id)
+        let lib = try #require(ids.firstIndex(of: "cache.library"))
+        for specific in ["cache.pip", "cache.brew", "cache.dotcache.playwright", "cache.go"] {
+            #expect(try #require(ids.firstIndex(of: specific)) < lib, "\(specific) must precede cache.library")
+        }
+    }
+}

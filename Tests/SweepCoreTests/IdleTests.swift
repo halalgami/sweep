@@ -128,3 +128,13 @@ import Testing
         #expect(await DetectorRegistry.detector(for: .gitWorktrees).detect(rule: rule("git.worktrees"), context: ctx).items.isEmpty)
     }
 }
+
+@Suite struct ProjectRootAccessTests {
+    @Test func unreadableProjectRootIsReported() async {
+        let fs = FakeFileSystemProbe()
+        fs.addDir("/Users/me/Documents", unreadable: true)
+        let ctx = makeContext(probe: fs, settings: ScanSettings(projectRoots: ["/Users/me/Documents"]))
+        let out = await DetectorRegistry.detector(for: .projectArtifacts).detect(rule: rule("artifact.projects"), context: ctx)
+        #expect(out.warnings.contains { $0.contains("~/Documents") && $0.contains("couldn't read") })
+    }
+}

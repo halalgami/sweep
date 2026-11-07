@@ -4,6 +4,10 @@ import Foundation
 struct ProjectArtifactsDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         var out = DetectorOutput()
+        for root in ctx.settings.projectRoots.map({ PathPattern.expandHome($0, home: ctx.home) })
+        where ctx.probe.exists(root) && ctx.probe.children(root) == nil {
+            out.warnings.append("Sweep couldn't read \(root.replacingOccurrences(of: ctx.home, with: "~")) (macOS privacy). Allow access when asked, or grant Full Disk Access, to find idle projects there.")
+        }
         let names = Set((rule.params?["artifacts"] ?? "").split(separator: ",").map(String.init))
         for project in ProjectDiscovery.projects(ctx) {
             let artifacts = findArtifacts(in: project, names: names, ctx: ctx)

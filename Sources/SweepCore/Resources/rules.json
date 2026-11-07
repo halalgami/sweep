@@ -194,21 +194,6 @@
    ]
   },
   {
-   "id": "cache.library",
-   "title": "App caches",
-   "tier": 1,
-   "kind": "libraryCaches",
-   "action": {
-    "type": "hardDelete"
-   },
-   "rebuildCost": "low",
-   "explanation": "Per-app caches in ~/Library/Caches. Apps rebuild them. Apple-protected caches can't be removed and are skipped, not reported as failures.",
-   "paths": [
-    "~/Library/Caches"
-   ],
-   "minBytes": 50000000
-  },
-  {
    "id": "cache.dotcache.puppeteer",
    "title": "Puppeteer browsers",
    "tier": 1,
@@ -352,6 +337,21 @@
    "requiresAppQuit": [
     "Xcode.app/Contents/MacOS/Xcode"
    ]
+  },
+  {
+   "id": "cache.library",
+   "title": "App caches",
+   "tier": 1,
+   "kind": "libraryCaches",
+   "action": {
+    "type": "hardDelete"
+   },
+   "rebuildCost": "low",
+   "explanation": "Per-app caches in ~/Library/Caches. Apps rebuild them. Apple-protected caches can't be removed and are skipped, not reported as failures.",
+   "paths": [
+    "~/Library/Caches"
+   ],
+   "minBytes": 50000000
   },
   {
    "id": "docker.builder",
