@@ -18,7 +18,7 @@ struct EditorExtensionsDetector: Detector {
             for (ext, versions) in groups.sorted(by: { $0.key < $1.key }) where versions.count > 1 {
                 let sorted = versions.sorted { $0.mtime > $1.mtime }
                 for old in sorted.dropFirst() {
-                    let size = ctx.sizer.measure(old.path)
+                    let size = ctx.measure(old.path)
                     out.items.append(ItemFactory.make(
                         rule: rule, path: old.path, title: "\(ext) \(old.version) (old version)", size: size,
                         action: ItemFactory.action(for: rule, path: old.path, toolPath: nil, ctx: ctx),

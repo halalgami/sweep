@@ -503,6 +503,9 @@
     "~/Library/Containers/com.utmapp.UTM/Data/Documents/*.utm",
     "~/Virtual Machines.localized/*.vmwarevm",
     "~/Virtual Machines/*.vmwarevm"
+   ],
+   "requiresNoProcess": [
+    "prl_vm_app|prl_client_app|vmware-vmx|UTM\\.app/Contents/|QEMULauncher|qemu-system"
    ]
   },
   {

@@ -24,7 +24,7 @@ struct GitWorktreeDetector: Detector {
                 for base in ["main", "master"] {
                     if await ctx.runner.run(git, ["-C", wt, "merge-base", "--is-ancestor", "HEAD", base], timeout: 15).ok { merged = true; break }
                 }
-                let size = ctx.sizer.measure(wt, skipDirNames: [])
+                let size = ctx.measure(wt, skipDirNames: [])
                 out.items.append(ItemFactory.make(
                     rule: rule, path: wt, title: "Worktree \((wt as NSString).lastPathComponent)", size: size,
                     action: ctx.probe.isDeletable(wt) ? .gitWorktreeRemove(repo: repo) : .revealInFinder,

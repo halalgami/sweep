@@ -46,7 +46,18 @@ struct LeftoversDetector: Detector {
 
         var out = DetectorOutput()
         var seen = Set<String>()
+        let running = ctx.processes.processes()
         for app in apps where !app.bundleID.hasPrefix("com.apple.") {
+            // An updater (brew cask, Sparkle) often leaves the *previous* copy in the Trash while the app stays installed.
+            if installed.contains(where: { $0.identifier == app.bundleID }) {
+                out.warnings.append("\(app.name) is in the Trash but another copy is still installed, so its data was left alone")
+                continue
+            }
+            let bundleName = (app.path as NSString).lastPathComponent
+            if running.contains(where: { p in p.arguments.first.map { $0.contains("/\(bundleName)/Contents/MacOS/") && !$0.contains("/.Trash/") } ?? false }) {
+                out.warnings.append("\(app.name) is still running, so its data was left alone")
+                continue
+            }
             let vendor = app.bundleID.split(separator: ".").prefix(2).joined(separator: ".").lowercased()
             let sibling = installed.first { $0.identifier.lowercased().hasPrefix(vendor + ".") && $0.identifier != app.bundleID }
             let id = app.bundleID.lowercased(), appName = app.name.lowercased()
@@ -59,7 +70,7 @@ struct LeftoversDetector: Detector {
                     return
                 }
                 seen.insert(path)
-                let size = meta.isDirectory ? ctx.sizer.measure(path) : FileWalker.size(meta)
+                let size = meta.isDirectory ? ctx.measure(path) : FileWalker.size(meta)
                 var action = ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx)
                 var evidence = ["Left behind by \(app.name), which is in the Trash"] + extra
                 if path.contains("/Library/Containers/") || path.contains("/Library/Group Containers/") {
@@ -72,7 +83,10 @@ struct LeftoversDetector: Detector {
             func classify(_ name: String) -> Bool? {   // true = exact id match, false = name match, nil = no match
                 let n = name.lowercased()
                 if n.hasPrefix("com.apple.") { return nil }
-                if n.contains(id) { return true }
+                // Whole-component match only: "io.x.app" must not match "io.x.application".
+                if n == id || n.hasPrefix(id + ".") || n.hasPrefix(id + "-") || n.hasSuffix("." + id) || n.contains("." + id + ".") {
+                    return true
+                }
                 let stem = (n as NSString).deletingPathExtension
                 if n == appName || n == squashed || stem == appName || stem == squashed { return false }
                 return nil

@@ -7,7 +7,7 @@ struct PathDetector: Detector {
         let minBytes = rule.minBytes ?? 1_000_000
         let paths = (rule.paths ?? []).flatMap(ctx.expand)
         for path in paths {
-            let size = ctx.sizer.measure(path)
+            let size = ctx.measure(path)
             guard size.physical >= minBytes else { continue }
             let title = paths.count > 1 ? "\(rule.title): \((path as NSString).lastPathComponent)" : rule.title
             out.items.append(ItemFactory.make(rule: rule, path: path, title: title, size: size,
@@ -32,7 +32,7 @@ struct ToolCacheDetector: Detector {
         }
         if dir == nil { dir = (rule.paths ?? []).flatMap(ctx.expand).first }
         guard let dir else { return DetectorOutput() }
-        let size = ctx.sizer.measure(dir)
+        let size = ctx.measure(dir)
         guard size.physical >= (rule.minBytes ?? 1_000_000) else { return DetectorOutput() }
         let action = ItemFactory.action(for: rule, path: dir, toolPath: tool, ctx: ctx)
         return DetectorOutput(items: [ItemFactory.make(rule: rule, path: dir, size: size, action: action,
@@ -49,7 +49,7 @@ struct LibraryCachesDetector: Detector {
             for child in ctx.probe.childPaths(base) ?? [] {
                 guard let meta = ctx.probe.meta(child), !meta.isSymlink else { continue }
                 if meta.isDirectory, ctx.probe.children(child) == nil { protected += 1; continue }
-                let size = ctx.sizer.measure(child)
+                let size = ctx.measure(child)
                 guard size.physical >= (rule.minBytes ?? 50_000_000) else { continue }
                 let name = (child as NSString).lastPathComponent
                 var evidence: [String] = []
@@ -76,7 +76,7 @@ struct ProtectedDetector: Detector {
         func list(_ key: String) -> [String] { (rule.params?[key] ?? "").split(separator: ",").map(String.init) }
         for pattern in list("clonePatterns") {
             for path in ctx.expand(pattern) {
-                let size = ctx.sizer.measure(path)
+                let size = ctx.measure(path)
                 guard size.physical > 0 else { continue }
                 out.items.append(ItemFactory.make(rule: rule, path: path, title: "APFS clone: \((path as NSString).lastPathComponent)",
                     size: size, action: .none(reason: "APFS clone: du overstates it and deleting it won't free space")))
@@ -84,7 +84,7 @@ struct ProtectedDetector: Detector {
         }
         for pattern in list("sipPaths") {
             for path in ctx.expand(pattern) {
-                let size = ctx.sizer.measure(path)
+                let size = ctx.measure(path)
                 guard size.physical > 0 else { continue }
                 out.items.append(ItemFactory.make(rule: rule, path: path, title: "System-protected: \((path as NSString).lastPathComponent)",
                     size: size, action: .none(reason: "Protected by macOS System Integrity Protection")))

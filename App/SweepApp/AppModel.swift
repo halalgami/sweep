@@ -194,8 +194,16 @@ final class AppModel {
 
     // MARK: Decisions
 
-    func keep(_ item: Item, days: Int = 90) { try? history?.setDecision(.keep(item.id, days: days)); refreshHistory() }
-    func neverAsk(_ item: Item) { try? history?.setDecision(.neverAsk(item.id)); refreshHistory() }
+    func keep(_ item: Item, days: Int = 90) {
+        try? history?.setDecision(.keep(item.id, days: days))
+        plan = plan?.removing(itemID: item.id)   // a decision made from inside an open plan applies immediately
+        refreshHistory()
+    }
+    func neverAsk(_ item: Item) {
+        try? history?.setDecision(.neverAsk(item.id))
+        plan = plan?.removing(itemID: item.id)
+        refreshHistory()
+    }
     func forget(_ item: Item) { try? history?.clearDecision(item.id); refreshHistory() }
 
     // MARK: Plan → Execute → Verify

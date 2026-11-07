@@ -19,7 +19,7 @@ public struct IdleChecker: Sendable {
         let n = ctx.settings.idleDays
         var reasons: [String] = []
         var idle = true
-        let src = ctx.sizer.measure(project, skipDirNames: ProjectDiscovery.artifactNames.union([".git"])).newestMTime
+        let src = ctx.measure(project, skipDirNames: ProjectDiscovery.artifactNames.union([".git"])).newestMTime
         func days(_ d: Date) -> Int { max(0, Int(ctx.now.timeIntervalSince(d) / 86400)) }
         if let src, days(src) < n { idle = false; reasons.append("A source file was edited \(days(src)) days ago") }
 
@@ -40,6 +40,11 @@ public struct IdleChecker: Sendable {
             (p.cwd.map { $0 == project || $0.hasPrefix(project + "/") } ?? false) || p.arguments.contains { $0.hasPrefix(project) }
         }
         if let s = servers.first { idle = false; reasons.append("A dev server is running for it (pid \(s.pid))") }
+        else if let s = ctx.processes.processes().first(where: { p in
+            (p.cwd.map { $0 == project || $0.hasPrefix(project + "/") } ?? false) || p.arguments.contains { $0.hasPrefix(project + "/") }
+        }) {
+            idle = false; reasons.append("\(s.command) (pid \(s.pid)) is running from this project")
+        }
 
         let newest = [src, lastCommit].compactMap { $0 }.max()
         return IdleVerdict(idle: idle, idleDays: newest.map(days) ?? n, lastCommit: lastCommit, newestSource: src, reasons: reasons)

@@ -64,7 +64,8 @@ public struct SafetyGuard: Sendable {
         }
         if let reason = protected.reason(for: path) ?? protected.reason(for: Self.normalize(path)) { return .blocked(reason) }
 
-        if item.tier == .idleArtifact, case .hardDelete = item.action, let project = projectRoot(of: path) {
+        if item.tier == .idleArtifact, case .hardDelete = item.action {
+            guard let project = projectRoot(of: path) else { return .blocked("Couldn't find the project this folder belongs to") }
             var now = context
             now.now = Date()   // judge idleness at execution time, not scan time
             let v = await IdleChecker().verdict(project: project, context: now)
@@ -79,12 +80,19 @@ public struct SafetyGuard: Sendable {
         return .allowed
     }
 
+    /// The git repository root if the artifact is inside one (so monorepo packages see the whole repo's activity),
+    /// otherwise the nearest folder with a project marker.
     func projectRoot(of artifact: String) -> String? {
         var dir = (artifact as NSString).deletingLastPathComponent
+        var nearest: String?
+        var gitRoot: String?
         while dir.count > 1 {
-            if let kids = context.probe.children(dir), kids.contains(where: ProjectDiscovery.markers.contains) { return dir }
+            if let kids = context.probe.children(dir) {
+                if nearest == nil, kids.contains(where: ProjectDiscovery.markers.contains) { nearest = dir }
+                if kids.contains(".git") { gitRoot = dir }
+            }
             dir = (dir as NSString).deletingLastPathComponent
         }
-        return nil
+        return gitRoot ?? nearest
     }
 }

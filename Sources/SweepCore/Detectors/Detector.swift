@@ -27,7 +27,12 @@ public struct DetectionContext: Sendable {
     public var processes: ProcessListing
     public var settings: ScanSettings
     public var now: Date
+    /// Checked by long walks so "Stop" takes effect promptly.
+    public var isCancelled: @Sendable () -> Bool = { false }
     public var sizer: SizeCalculator { SizeCalculator(probe: probe) }
+    public func measure(_ path: String, skipDirNames: Set<String> = []) -> SizeResult {
+        sizer.measure(path, skipDirNames: skipDirNames, shouldCancel: isCancelled)
+    }
 
     public init(home: String, runner: CommandRunner, tools: ToolLocating, probe: FileSystemProbe,
                 processes: ProcessListing, settings: ScanSettings, now: Date) {

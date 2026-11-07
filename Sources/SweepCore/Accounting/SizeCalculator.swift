@@ -29,6 +29,7 @@ public struct SizeCalculator: Sendable {
     public func measure(_ root: String, skipDirNames: Set<String> = [],
                         shouldCancel: (@Sendable () -> Bool)? = nil) -> SizeResult {
         var result = SizeResult()
+        if shouldCancel?() == true { return result }
         guard let rootMeta = probe.meta(root) else { return result }
         var seen = Set<InodeKey>()
         account(rootMeta, &result, &seen)

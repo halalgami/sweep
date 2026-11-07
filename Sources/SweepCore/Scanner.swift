@@ -36,7 +36,10 @@ public final class SweepScanner: Sendable {
     public func scanReport() async -> ScanReport { await run { _ in } }
 
     private func run(_ emit: @escaping @Sendable (ScanEvent) -> Void) async -> ScanReport {
-        let ctx = context
+        var c = context
+        let cancelFlag = self.cancelFlag
+        c.isCancelled = { cancelFlag.isSet }
+        let ctx = c
         let accounting = VolumeAccounting(runner: ctx.runner, probe: ctx.probe, home: ctx.home)
         var volume = VolumeSummary(totalBytes: 0, availableBytes: 0, importantAvailableBytes: 0, usedBytes: 0)
         var apfs: [APFSVolumeInfo] = [], snapshots: [String] = [], fda = false
@@ -92,9 +95,21 @@ public final class SweepScanner: Sendable {
 
     /// Dedupe by id and path (earlier rule wins), drop items nested in another item, apply protected locations, sort by size.
     static func consolidate(_ raw: [Item], protected: ProtectedLocations) -> [Item] {
-        var seenIDs = Set<String>(), seenPaths = Set<String>()
+        var seenIDs = Set<String>()
+        var byPath: [String: Int] = [:]
         var items: [Item] = []
-        for item in raw where seenIDs.insert(item.id).inserted && seenPaths.insert(item.path).inserted {
+        for item in raw where seenIDs.insert(item.id).inserted {
+            if let i = byPath[item.path] {
+                // Same file found by two rules: keep the earlier rule, but never lose a sensitive-data flag.
+                if item.sensitive && !items[i].sensitive {
+                    items[i].sensitive = true
+                    items[i].action = .revealInFinder
+                    items[i].defaultSelected = false
+                    items[i].evidence += item.evidence
+                }
+                continue
+            }
+            byPath[item.path] = items.count
             items.append(item)
         }
         let realPaths = items.filter { $0.path.hasPrefix("/") }.map(\.path)

@@ -28,6 +28,8 @@ public struct Plan: Codable, Sendable, Hashable {
         return Plan(entries: entries)
     }
 
+    public func removing(itemID: String) -> Plan { Plan(entries: entries.filter { $0.item.id != itemID }) }
+
     public var selected: [PlanEntry] { entries.filter(\.selected) }
     public var expectedFreedBytes: Int64 { selected.filter { $0.item.action != .trash }.reduce(0) { $0 + $1.item.physicalBytes } }
     public var toTrashBytes: Int64 { selected.filter { $0.item.action == .trash }.reduce(0) { $0 + $1.item.physicalBytes } }

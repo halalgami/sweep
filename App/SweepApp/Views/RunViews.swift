@@ -265,6 +265,7 @@ struct VerifyView: View {
     @Environment(AppModel.self) var model
     @Environment(\.colorScheme) var scheme
     @State private var shade = true
+    @State private var confirmEmpty = false
     var body: some View {
         let p = Palette.current(scheme)
         let v = model.verification
@@ -303,7 +304,13 @@ struct VerifyView: View {
                         HStack {
                             Text("Items moved to the Trash still take up space until you empty it.").font(Fonts.ui(13))
                             Spacer()
-                            Button("Empty Trash") { model.emptyTrash() }.buttonStyle(PlatinumButtonStyle())
+                            Button("Empty Trash…") { confirmEmpty = true }.buttonStyle(PlatinumButtonStyle())
+                                .confirmationDialog("Empty the whole Trash?", isPresented: $confirmEmpty) {
+                                    Button("Empty Trash", role: .destructive) { model.emptyTrash() }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("This permanently deletes everything in your Trash, not only what Sweep moved there. It can't be undone.")
+                                }
                         }.platinumPanel()
                     }
                 }

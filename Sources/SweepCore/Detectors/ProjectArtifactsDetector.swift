@@ -19,7 +19,7 @@ struct ProjectArtifactsDetector: Detector {
             if let c = v.lastCommit { evidence.append("Last commit \(c.formatted(date: .abbreviated, time: .omitted))") }
             evidence.append("No dev server running")
             for path in artifacts {
-                let size = ctx.sizer.measure(path)
+                let size = ctx.measure(path)
                 guard size.physical >= (rule.minBytes ?? 1_000_000) else { continue }
                 let artifact = (path as NSString).lastPathComponent
                 let rel = String(path.dropFirst(project.count + 1))

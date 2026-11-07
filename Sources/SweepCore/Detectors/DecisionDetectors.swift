@@ -35,7 +35,7 @@ struct VMDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         var out = DetectorOutput()
         for path in (rule.paths ?? []).flatMap(ctx.expand) {
-            let size = ctx.sizer.measure(path)
+            let size = ctx.measure(path)
             guard size.physical > 0 else { continue }
             let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
             let booted = FileWalker.newestMTime(under: path, suffix: ".log", maxDepth: 3, probe: ctx.probe)
@@ -86,7 +86,7 @@ struct LLMModelsDetector: Detector {
         for base in (rule.paths ?? []).filter({ !$0.contains(".ollama") }).flatMap(ctx.expand) {
             for publisher in ctx.probe.childPaths(base) ?? [] {
                 for model in ctx.probe.childPaths(publisher) ?? [] where ctx.probe.meta(model)?.isDirectory == true {
-                    let size = ctx.sizer.measure(model)
+                    let size = ctx.measure(model)
                     guard size.physical > 0 else { continue }
                     out.items.append(ItemFactory.make(rule: rule, path: model, title: "LM Studio model \((model as NSString).lastPathComponent)",
                                                       size: size, action: ItemFactory.action(for: rule, path: model, toolPath: nil, ctx: ctx)))
@@ -180,7 +180,7 @@ struct DeviceSupportDetector: Detector {
             let dirs = (ctx.probe.childPaths(base) ?? []).compactMap { p in ctx.probe.meta(p).flatMap { $0.isDirectory ? (p, $0.mtime) : nil } }
                 .sorted { $0.1 > $1.1 }
             for (path, mtime) in dirs.dropFirst(keep) {
-                let size = ctx.sizer.measure(path)
+                let size = ctx.measure(path)
                 out.items.append(ItemFactory.make(rule: rule, path: path,
                                                   title: "\((base as NSString).lastPathComponent) \((path as NSString).lastPathComponent)",
                                                   size: size, action: ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx),
