@@ -4,3 +4,4 @@
 *.xcworkspace/xcuserdata/
 DerivedData/
 .swiftpm/
+.superpowers/
