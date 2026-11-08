@@ -1,6 +1,11 @@
 import Foundation
 import Security
 
+public struct KeychainError: Error, CustomStringConvertible {
+    public var status: OSStatus
+    public var description: String { "Keychain error \(status): \(SecCopyErrorMessageString(status, nil) as String? ?? "unknown")" }
+}
+
 /// API keys live in the login Keychain, never in defaults or files.
 public enum Keychain {
     public static let service = "dev.algamthe.sweep"
@@ -11,7 +16,7 @@ public enum Keychain {
                                 kSecAttrAccount as String: account, kSecValueData as String: Data(value.utf8),
                                 kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked]
         let status = SecItemAdd(q as CFDictionary, nil)
-        guard status == errSecSuccess else { throw SQLiteError(description: "Keychain error \(status)") }
+        guard status == errSecSuccess else { throw KeychainError(status: status) }
     }
 
     public static func load(account: String) -> String? {

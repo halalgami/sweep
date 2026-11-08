@@ -51,6 +51,8 @@ public struct OSAScriptNotifier: Notifier {
 }
 
 /// Installs the weekly maintenance LaunchAgent.
+public struct MaintenanceError: Error, CustomStringConvertible { public var description: String }
+
 public struct LaunchAgentManager: Sendable {
     public static let label = "dev.algamthe.sweep.agent"
     public let home: String
@@ -76,7 +78,7 @@ public struct LaunchAgentManager: Sendable {
         let domain = "gui/\(getuid())"
         _ = await runner.run("/bin/launchctl", ["bootout", "\(domain)/\(Self.label)"], timeout: 15)
         let r = await runner.run("/bin/launchctl", ["bootstrap", domain, plistPath], timeout: 15)
-        if !r.ok { throw SQLiteError(description: "launchctl bootstrap failed: \(r.stderr)") }
+        if !r.ok { throw MaintenanceError(description: "launchctl bootstrap failed: \(r.stderr)") }
     }
 
     public func uninstall() async throws {

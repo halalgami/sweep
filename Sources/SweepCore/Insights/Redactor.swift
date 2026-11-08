@@ -25,6 +25,7 @@ public final class Redactor: @unchecked Sendable {
         guard path.hasPrefix("/") else { return path }
         if !revealNames, let root = sensitiveRoots.first(where: { path.hasPrefix($0 + "/") }) {
             let comps = path.dropFirst(root.count + 1).split(separator: "/").map(String.init)
+            guard !comps.isEmpty else { return tilde(root) }
             let n = lock.withLock { () -> Int in
                 if let n = projects[comps[0]] { return n }
                 let n = projects.count + 1; projects[comps[0]] = n; return n

@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 public enum ItemStatus: String, Codable, Sendable {
-    case removed, trashed, partial, protectedByMacOS, blocked, failed
+    case removed, trashed, partial, protectedByMacOS, blocked, failed, alreadyGone
 
     public var label: String {
         switch self {
@@ -12,6 +12,7 @@ public enum ItemStatus: String, Codable, Sendable {
         case .protectedByMacOS: "Protected by macOS"
         case .blocked: "Skipped for safety"
         case .failed: "Failed"
+        case .alreadyGone: "Already gone"
         }
     }
 }
@@ -73,9 +74,17 @@ public final class Executor: Sendable {
     }
 
     func run(_ item: Item, log emit: @Sendable (String) -> Void) async -> ItemResult {
-        func result(_ s: ItemStatus, removed: Int = 0, protected: Int = 0, failed: Int = 0, _ msg: String) -> ItemResult {
+        func result(_ s: ItemStatus, removed: Int = 0, protected: Int = 0, failed: Int = 0, bytes: Int64? = nil, _ msg: String) -> ItemResult {
             ItemResult(itemID: item.id, title: item.title, status: s, removedPaths: removed, protectedPaths: protected,
-                       failedPaths: failed, message: msg, expectedBytes: item.physicalBytes)
+                       failedPaths: failed, message: msg, expectedBytes: bytes ?? item.physicalBytes)
+        }
+        // Something else removed it after the scan: nothing to do, and nothing freed by us.
+        if item.action == .hardDelete || item.action == .trash {
+            var st = stat()
+            if lstat(item.path, &st) != 0, errno == ENOENT {
+                emit("\(item.title) was already gone")
+                return result(.alreadyGone, bytes: 0, "It was already gone (something else removed it after the scan)")
+            }
         }
         if case let .blocked(reason) = await guardian.check(item) {
             emit("Skipped \(item.title): \(reason)")
@@ -84,13 +93,15 @@ public final class Executor: Sendable {
         emit("→ \(item.action.preview(path: item.path))")
         switch item.action {
         case .hardDelete:
-            let t = Self.deleteTree(item.path)
+            let t = await Self.deleteTreeAsync(item.path)
             let status: ItemStatus = t.protected == 0 && t.failed == 0 ? .removed
                 : t.removed > 0 ? .partial : t.failed == 0 ? .protectedByMacOS : .failed
             var msg = "\(t.removed) removed"
             if t.protected > 0 { msg += ", \(t.protected) protected by macOS" }
             if t.failed > 0 { msg += ", \(t.failed) failed (\(t.firstError ?? "unknown error"))" }
-            return result(status, removed: t.removed, protected: t.protected, failed: t.failed, msg)
+            // Only a fully removed item counts its scanned size; otherwise count what was actually unlinked.
+            let bytes = status == .removed ? item.physicalBytes : min(t.freedBytes, item.physicalBytes)
+            return result(status, removed: t.removed, protected: t.protected, failed: t.failed, bytes: bytes, msg)
         case .trash:
             do {
                 try FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
@@ -121,7 +132,14 @@ public final class Executor: Sendable {
         return "Exit \(r.exitCode): " + String(s.suffix(400))
     }
 
-    struct TreeResult { var removed = 0; var protected = 0; var failed = 0; var firstError: String? }
+    struct TreeResult: Sendable { var removed = 0; var protected = 0; var failed = 0; var freedBytes: Int64 = 0; var firstError: String? }
+
+    /// `deleteTree` blocks for as long as the filesystem takes; keep it off Swift's cooperative thread pool.
+    static func deleteTreeAsync(_ root: String) async -> TreeResult {
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .utility).async { cont.resume(returning: deleteTree(root)) }
+        }
+    }
 
     /// Bottom-up delete without following symlinks; each path's outcome counted individually.
     static func deleteTree(_ root: String) -> TreeResult {
@@ -141,7 +159,10 @@ public final class Executor: Sendable {
                 } else { classify(errno, path); return }
                 if rmdir(path) != 0, errno != ENOTEMPTY, errno != EEXIST { classify(errno, path) }
             } else {
-                if unlink(path) == 0 { t.removed += 1 } else { classify(errno, path) }
+                if unlink(path) == 0 {
+                    t.removed += 1
+                    if st.st_nlink <= 1 { t.freedBytes += Int64(st.st_blocks) * 512 }   // other hard links keep the data alive
+                } else { classify(errno, path) }
             }
         }
         visit(root)

@@ -113,8 +113,9 @@ import Testing
     @Test func blockedItemsAreReportedNotExecuted() async {
         let t = TempDir()
         let results = await run(executor(home: t.path, log: t.url.appendingPathComponent("l")),
-                                Plan(entries: [PlanEntry(item: testItem(t.path + "/nope"), selected: true)]))
+                                Plan(entries: [PlanEntry(item: testItem(t.dir("Library/Keychains")), selected: true)]))
         #expect(results.first?.status == .blocked)
+        #expect(FileManager.default.fileExists(atPath: t.path + "/Library/Keychains"))
     }
 
     @Test func verificationSplitsFreedTrashedAndFlagsLag() {

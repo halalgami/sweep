@@ -28,7 +28,7 @@ public struct ProtectedLocations: Sendable {
     public var neverTouch: [String] {
         ["\(home)/Library/Keychains", "\(home)/Library/Mail", "\(home)/Library/Messages", "\(home)/Library/Containers/com.apple.mail",
          "\(home)/Library/Group Containers/group.com.apple.notes", "\(home)/Library/Safari", "\(home)/Library/Photos",
-         "\(home)/Pictures/Photos Library.photoslibrary", "/System", "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/lib", "/private/etc"]
+         "\(home)/Pictures/Photos Library.photoslibrary", "/System", "/bin", "/sbin", "/usr", "/private/etc", "/Library/Apple"]
     }
 
     /// Bucket roots and the home folder itself must never be removed wholesale.
@@ -43,7 +43,7 @@ public struct ProtectedLocations: Sendable {
         func inside(_ root: String) -> Bool { path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/") }
         if let r = userProtected.first(where: inside) { return "It's inside your protected folder \(r.replacingOccurrences(of: home, with: "~"))" }
         if cloudRoots.contains(where: inside) || path.hasPrefix("\(home)/OneDrive") { return "It's in a cloud-synced folder, which Sweep never touches" }
-        if let r = neverTouch.first(where: inside) { return "Sweep never touches \(r.replacingOccurrences(of: home, with: "~"))" }
+        if let r = neverTouch.first(where: inside), !(r == "/usr" && inside("/usr/local")) { return "Sweep never touches \(r.replacingOccurrences(of: home, with: "~"))" }
         if wholeRoots.contains(path) { return "Sweep never removes a whole top-level folder" }
         return nil
     }

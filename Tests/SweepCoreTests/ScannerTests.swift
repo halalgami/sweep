@@ -69,7 +69,7 @@ import Testing
 
     @Test func findsOrphanedMCPProcesses() {
         let ctx = makeContext(processes: [
-            RunningProcess(pid: 77, ppid: 1, command: "node", arguments: ["node", "/x/npx", "@modelcontextprotocol/server-github"], cwd: nil),
+            RunningProcess(pid: 77, ppid: 1, pgid: 70, command: "node", arguments: ["node", "/x/npx", "@modelcontextprotocol/server-github"], cwd: nil),
             RunningProcess(pid: 78, ppid: 500, command: "node", arguments: ["node", "/x/npx", "@modelcontextprotocol/server-x"], cwd: nil),
         ])
         let hints = RootCauseAnalyzer().analyze(context: ctx)

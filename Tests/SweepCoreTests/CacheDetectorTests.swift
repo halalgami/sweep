@@ -106,7 +106,7 @@ import Testing
         runner.stub("\(d) ps -a --format {{.Image}}", stdout: "postgres:16\n")
         let out = await DetectorRegistry.detector(for: .docker).detect(rule: rule("docker.images"), context: makeContext(runner: runner, tools: ["docker"]))
         #expect(out.items.map(\.title) == ["Docker image redis:7"])
-        #expect(out.items.first?.action == .dockerCommand(arguments: ["image", "rm", "bbb"]))
+        #expect(out.items.first?.action == .dockerCommand(arguments: ["image", "rm", "redis:7"]))
         #expect(out.items.first?.tier == .needsDecision)
     }
 

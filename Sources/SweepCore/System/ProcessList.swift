@@ -4,11 +4,13 @@ import Foundation
 public struct RunningProcess: Sendable, Hashable {
     public var pid: Int32
     public var ppid: Int32
+    /// Process group; nil when unknown. A helper whose group leader has exited was left behind by its parent.
+    public var pgid: Int32?
     public var command: String
     public var arguments: [String]
     public var cwd: String?
-    public init(pid: Int32, ppid: Int32, command: String, arguments: [String], cwd: String?) {
-        self.pid = pid; self.ppid = ppid; self.command = command; self.arguments = arguments; self.cwd = cwd
+    public init(pid: Int32, ppid: Int32, pgid: Int32? = nil, command: String, arguments: [String], cwd: String?) {
+        self.pid = pid; self.ppid = ppid; self.pgid = pgid; self.command = command; self.arguments = arguments; self.cwd = cwd
     }
     public var commandLine: String { arguments.isEmpty ? command : arguments.joined(separator: " ") }
 }
@@ -53,7 +55,7 @@ public struct SystemProcessListing: ProcessListing {
             let comm = withUnsafeBytes(of: kp.kp_proc.p_comm) { raw in
                 String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
             }
-            return RunningProcess(pid: pid, ppid: kp.kp_eproc.e_ppid, command: comm,
+            return RunningProcess(pid: pid, ppid: kp.kp_eproc.e_ppid, pgid: kp.kp_eproc.e_pgid, command: comm,
                                   arguments: Self.arguments(pid: pid), cwd: Self.cwd(pid: pid))
         }
     }

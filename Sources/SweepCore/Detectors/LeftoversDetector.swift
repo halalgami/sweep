@@ -20,7 +20,11 @@ struct LeftoversDetector: Detector {
 
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         guard let osascript = ctx.tools.path(for: "osascript") else { return DetectorOutput() }
-        let trash = await ctx.runner.run(osascript, Self.trashScriptArguments, timeout: 30)
+        // The first run shows macOS's Automation prompt and waits for an answer, so allow time for a person to read it.
+        let trash = await ctx.runner.run(osascript, Self.trashScriptArguments, timeout: 90)
+        if trash.timedOut {
+            return DetectorOutput(warnings: ["Leftovers of deleted apps were skipped: macOS is waiting for you to allow Sweep to read the Trash through Finder. Answer that prompt, then scan again."])
+        }
         guard trash.ok else {
             return DetectorOutput(warnings: ["Sweep couldn't read the Trash to find leftovers. Allow Sweep to control Finder in System Settings > Privacy & Security > Automation."])
         }

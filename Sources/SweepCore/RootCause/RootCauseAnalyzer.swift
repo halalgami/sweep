@@ -31,8 +31,12 @@ public struct RootCauseAnalyzer: Sendable {
         }
 
         let procs = ctx.processes.processes()
+        let alive = Set(procs.map(\.pid))
+        // launchd (pid 1) also parents services it started on purpose; those lead their own process group.
+        // An orphan's group leader (the agent session that spawned it) is gone.
         let orphans = procs.filter { p in
-            p.ppid == 1 && p.commandLine.range(of: "mcp|modelcontextprotocol", options: [.regularExpression, .caseInsensitive]) != nil
+            guard p.ppid == 1, let g = p.pgid, g != p.pid, !alive.contains(g) else { return false }
+            return p.commandLine.range(of: "mcp|modelcontextprotocol", options: [.regularExpression, .caseInsensitive]) != nil
                 && p.commandLine.range(of: #"uvx|npx|node|python|uv run"#, options: .regularExpression) != nil
         }
         if !orphans.isEmpty {

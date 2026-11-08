@@ -5,6 +5,9 @@ public struct Verification: Codable, Sendable, Hashable {
     public var trashedBytes: Int64
     public var freedNowBytes: Int64
     public var lagLikely: Bool
+    public init(expectedBytes: Int64, trashedBytes: Int64, freedNowBytes: Int64, lagLikely: Bool) {
+        self.expectedBytes = expectedBytes; self.trashedBytes = trashedBytes; self.freedNowBytes = freedNowBytes; self.lagLikely = lagLikely
+    }
 }
 
 /// Compares expected vs actual freed space. APFS often reports freed space with a delay.

@@ -81,23 +81,37 @@ struct DockerDetector: Detector {
         let used = await ctx.runner.run(docker, ["ps", "-a", "--format", "{{.Image}}"], timeout: 20)
         guard r.ok, used.ok else { return DetectorOutput() }
         let inUse = Set(used.stdout.split(separator: "\n").map(String.init))
-        var out = DetectorOutput()
+        // One image can carry several tags; `docker image rm <id>` refuses those, so remove it by all its tags at once.
+        var order: [String] = []
+        var tags: [String: [String]] = [:]
+        var sizes: [String: Int64] = [:]
         for line in r.stdout.split(separator: "\n") {
             let f = line.split(separator: "\t").map(String.init)
             guard f.count == 3, !f[1].contains("<none>") else { continue }
-            let id = f[0], name = f[1]
-            if inUse.contains(name) || inUse.contains(id) || inUse.contains(where: { id.hasPrefix($0) || $0.hasPrefix(id) }) { continue }
-            if name.hasSuffix(":latest"), inUse.contains(String(name.dropLast(7))) { continue }
-            var s = SizeResult(); s.physical = Self.parseSize(f[2]); s.logical = s.physical
-            out.items.append(ItemFactory.make(rule: rule, path: "docker://image/\(id)", title: "Docker image \(name)", size: s,
-                                              action: .dockerCommand(arguments: ["image", "rm", id]), evidence: ["No container uses this image"]))
+            if tags[f[0]] == nil { order.append(f[0]) }
+            tags[f[0], default: []].append(f[1])
+            sizes[f[0]] = Self.parseSize(f[2])
+        }
+        func isUsed(_ id: String, _ name: String) -> Bool {
+            if inUse.contains(name) || inUse.contains(id) || inUse.contains(where: { id.hasPrefix($0) || $0.hasPrefix(id) }) { return true }
+            return name.hasSuffix(":latest") && inUse.contains(String(name.dropLast(7)))
+        }
+        var out = DetectorOutput()
+        for id in order {
+            let names = tags[id] ?? []
+            guard !names.contains(where: { isUsed(id, $0) }) else { continue }
+            var s = SizeResult(); s.physical = sizes[id] ?? 0; s.logical = s.physical
+            let title = "Docker image \(names[0])" + (names.count > 1 ? " (+\(names.count - 1) more tag\(names.count > 2 ? "s" : ""))" : "")
+            out.items.append(ItemFactory.make(rule: rule, path: "docker://image/\(id)", title: title, size: s,
+                                              action: .dockerCommand(arguments: ["image", "rm"] + names), evidence: ["No container uses this image"]))
         }
         return out
     }
 
     /// Docker prints decimal sizes like "1.2GB", "512kB", "0B".
     static func parseSize(_ raw: String) -> Int64 {
-        let s = raw.trimmingCharacters(in: .whitespaces)
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        if let paren = s.firstIndex(of: "(") { s = s[..<paren].trimmingCharacters(in: .whitespaces) }   // "1.2GB (50%)"
         let units: [(String, Double)] = [("TB", 1e12), ("GB", 1e9), ("MB", 1e6), ("kB", 1e3), ("KB", 1e3), ("B", 1)]
         for (u, mult) in units where s.hasSuffix(u) {
             guard let v = Double(s.dropLast(u.count).trimmingCharacters(in: .whitespaces)) else { return 0 }

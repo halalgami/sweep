@@ -43,7 +43,7 @@ public struct SafetyGuard: Sendable {
     static func dockerAllowed(_ a: [String]) -> Bool {
         if a == ["builder", "prune", "-f"] || a == ["image", "prune", "-f"] || a == DockerDetector.trimArguments { return true }
         if a.count == 5, Array(a.prefix(4)) == ["buildx", "prune", "-f", "--builder"], !a[4].hasPrefix("-") { return true }
-        if a.count == 3, a[0] == "image", a[1] == "rm", !a[2].hasPrefix("-") { return true }
+        if a.count >= 3, a[0] == "image", a[1] == "rm", a.dropFirst(2).allSatisfy({ !$0.hasPrefix("-") }) { return true }
         return false
     }
 
