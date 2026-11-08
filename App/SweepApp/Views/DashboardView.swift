@@ -54,6 +54,11 @@ struct HeroPanel: View {
                     }
                     if let r = model.report {
                         Text("Scanned \(r.scannedAt.formatted(date: .omitted, time: .shortened))").font(Fonts.ui(13)).foregroundStyle(p.secondary)
+                        if !model.scanning {
+                            Button { model.scan() } label: { Label("Scan again", systemImage: "arrow.clockwise") }
+                                .buttonStyle(PlatinumButtonStyle())
+                                .help("Measure everything again (⌘R)")
+                        }
                     }
                 }
             }

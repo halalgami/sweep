@@ -89,10 +89,19 @@ struct TopBar: View {
             if model.scanning {
                 ProgressView().controlSize(.small)
                 Button("Stop") { model.cancelScan() }.buttonStyle(PlatinumButtonStyle())
-            } else if model.screen == .dashboard {
-                Button { model.scan() } label: { Label("Scan", systemImage: "arrow.clockwise") }
-                    .buttonStyle(PlatinumButtonStyle())
-                    .modifier(BalloonHelp(text: "Measure everything again. Scanning never changes anything.", enabled: model.balloonHelp))
+            } else if model.screen == .dashboard || model.screen == .verify {
+                Button {
+                    if model.screen == .verify { model.finishRun() } else { model.scan() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.clockwise")
+                        Text(model.report == nil ? "Scan" : "Scan Again")
+                        Text("⌘R").opacity(0.75)
+                    }
+                }
+                .buttonStyle(GumdropButtonStyle())
+                .help("Measure everything again (⌘R). Scanning never changes anything.")
+                .modifier(BalloonHelp(text: "Measure everything again. Scanning never changes anything.", enabled: model.balloonHelp))
             }
             Toggle(isOn: Binding(get: { model.balloonHelp }, set: { model.balloonHelp = $0 })) {
                 Image(systemName: "questionmark.bubble")

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Scan Again is easy to find.** The top bar shows a coloured "Scan Again ⌘R" button on the dashboard and on the results screen, and the dashboard has a "Scan again" button next to the time of the last scan. Before, the only button was small and grey, and it was missing from the results screen.
+
 ## 0.2.0 (2026-11-08)
 
 Open-sourced under the MIT license.
