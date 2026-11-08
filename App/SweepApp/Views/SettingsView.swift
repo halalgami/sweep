@@ -3,12 +3,14 @@ import SwiftUI
 import SweepCore
 
 struct SettingsView: View {
+    @Environment(AppModel.self) var model
     var body: some View {
-        TabView {
-            GeneralSettings().tabItem { Label("General", systemImage: "paintpalette") }
-            ScanningSettings().tabItem { Label("Scanning", systemImage: "magnifyingglass") }
-            MaintenanceSettings().tabItem { Label("Maintenance", systemImage: "calendar") }
-            InsightsSettings().tabItem { Label("Insights", systemImage: "sparkles") }
+        @Bindable var model = model
+        TabView(selection: $model.settingsTab) {
+            GeneralSettings().tabItem { Label("General", systemImage: "paintpalette") }.tag("general")
+            ScanningSettings().tabItem { Label("Scanning", systemImage: "magnifyingglass") }.tag("scanning")
+            MaintenanceSettings().tabItem { Label("Maintenance", systemImage: "calendar") }.tag("maintenance")
+            InsightsSettings().tabItem { Label("Insights", systemImage: "sparkles") }.tag("insights")
         }
         .frame(width: 600, height: 520)
     }
@@ -209,20 +211,46 @@ struct InsightsSettings: View {
             }
             Section("Provider") {
                 Picker("Provider", selection: $model.insightsProvider) {
-                    Text("Claude (Anthropic API)").tag(InsightsProviderKind.claude)
-                    Text("Local model (Ollama)").tag(InsightsProviderKind.ollama)
+                    ForEach(InsightsProviderKind.allCases) { Text($0.title).tag($0) }
                 }
-                if model.insightsProvider == .claude {
+                switch model.insightsProvider {
+                case .claudeCode:
+                    Picker("Model", selection: $model.claudeCodeModel) {
+                        Text("Sonnet (balanced)").tag("sonnet")
+                        Text("Opus (most capable)").tag("opus")
+                        Text("Haiku (fastest)").tag("haiku")
+                        if !["sonnet", "opus", "haiku"].contains(model.claudeCodeModel) { Text(model.claudeCodeModel).tag(model.claudeCodeModel) }
+                    }
+                    if let path = model.claudeCodePath {
+                        LabeledContent("Claude Code", value: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                        Text("Uses the account Claude Code is signed in with; no API key needed. Runs `claude -p` with no tools, no plugins, no MCP servers and no CLAUDE.md, in an empty folder, so it can only read the summary below.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(InsightsError.claudeCodeMissing.description).foregroundStyle(.orange)
+                    }
+                case .ollama:
+                    if model.ollamaModels.isEmpty {
+                        TextField("Ollama model", text: $model.ollamaModel)
+                    } else {
+                        Picker("Ollama model", selection: $model.ollamaModel) {
+                            ForEach(model.ollamaModels, id: \.self) { Text($0).tag($0) }
+                            if !model.ollamaModels.contains(model.ollamaModel) { Text(model.ollamaModel).tag(model.ollamaModel) }
+                        }
+                    }
+                    Text("Talks to Ollama at 127.0.0.1:11434. Nothing leaves your Mac. Small models (8B) often give vague answers; 14B or larger works better.")
+                        .font(.caption).foregroundStyle(.secondary)
+                case .anthropicAPI:
                     TextField("Model", text: $model.claudeModel)
-                    SecureField(model.claudeKey == nil ? "API key" : "API key (saved in Keychain)", text: $key)
+                    SecureField(model.hasClaudeKey ? "API key (saved in Keychain)" : "API key", text: $key)
                     HStack {
                         Button("Save key") { model.saveClaudeKey(key); key = ""; saved = true }.disabled(key.isEmpty)
-                        if model.claudeKey != nil { Button("Remove key") { model.saveClaudeKey(""); saved = false } }
+                        if model.hasClaudeKey { Button("Remove key") { model.saveClaudeKey(""); saved = false } }
                         if saved { Text("Saved to Keychain").foregroundStyle(.green) }
                     }
-                } else {
-                    TextField("Ollama model", text: $model.ollamaModel)
-                    Text("Talks to Ollama at 127.0.0.1:11434. Nothing leaves your Mac.").font(.caption).foregroundStyle(.secondary)
+                }
+                HStack {
+                    Button("Check again") { model.refreshProviders() }
+                    if let status = model.providerStatus { Text(status).font(.caption).foregroundStyle(.orange) }
                 }
             }
             Section("Privacy") {
@@ -231,5 +259,7 @@ struct InsightsSettings: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { model.refreshProviders() }
+        .onChange(of: model.insightsProvider) { model.refreshProviders() }
     }
 }

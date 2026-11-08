@@ -72,7 +72,7 @@ struct PayloadSheet: View {
         let p = Palette.current(scheme)
         VStack(alignment: .leading, spacing: 10) {
             Text("Exactly what would be sent").font(Fonts.ui(20, .bold))
-            Text("Provider: \(model.insightsProvider == .claude ? "Anthropic (\(model.claudeModel))" : "Ollama on this Mac (\(model.ollamaModel))"). Usernames become ~, project and file names in your folders become project_NN, and sensitive files are fully redacted.")
+            Text("Provider: \(model.providerDescription) Usernames become ~, project and file names in your folders become project_NN, and sensitive files are fully redacted.")
                 .font(Fonts.ui(13)).foregroundStyle(p.secondary).fixedSize(horizontal: false, vertical: true)
             ScrollView {
                 Text(model.summary?.json() ?? "{}").font(Fonts.mono(11)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)

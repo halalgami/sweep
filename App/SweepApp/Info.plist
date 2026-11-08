@@ -33,6 +33,6 @@
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Sweep looks in Downloads for old installers and large files. It never reads file contents.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>© halalgami Technological Solutions</string>
+	<string>© 2026 halalgami. MIT License.</string>
 </dict>
 </plist>

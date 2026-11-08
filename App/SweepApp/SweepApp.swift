@@ -50,6 +50,7 @@ struct SweepApp: App {
 struct RootView: View {
     @Environment(AppModel.self) var model
     @Environment(\.colorScheme) var scheme
+    @Environment(\.openSettings) var openSettings
 
     var body: some View {
         let p = Palette.current(scheme)
@@ -70,6 +71,9 @@ struct RootView: View {
         .sheet(item: Binding(get: { model.selectedItem }, set: { model.selectedItem = $0 })) { item in
             ItemDetailSheet(item: item).environment(model).environment(\.flavor, model.flavor)
         }
+        #if DEBUG
+        .onAppear { DemoTour.openSettings = { openSettings() } }
+        #endif
     }
 }
 

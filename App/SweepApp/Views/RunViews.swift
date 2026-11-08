@@ -221,11 +221,12 @@ struct ResultsList: View {
     }
     func icon(_ s: ItemStatus) -> String {
         switch s { case .removed: "checkmark.circle.fill"; case .trashed: "trash.circle.fill"; case .partial: "circle.lefthalf.filled"
-        case .protectedByMacOS: "lock.circle.fill"; case .blocked: "hand.raised.circle.fill"; case .failed: "xmark.octagon.fill" }
+        case .protectedByMacOS: "lock.circle.fill"; case .blocked: "hand.raised.circle.fill"; case .failed: "xmark.octagon.fill"
+        case .alreadyGone: "circle.dashed" }
     }
     func color(_ s: ItemStatus) -> Color {
         switch s { case .removed, .trashed: Color(hex: 0x3D9A4E); case .partial, .protectedByMacOS: Color(hex: 0xB0841A)
-        case .blocked: Color(hex: 0x6B6F78); case .failed: Color(hex: 0xC8302E) }
+        case .blocked, .alreadyGone: Color(hex: 0x6B6F78); case .failed: Color(hex: 0xC8302E) }
     }
 }
 
@@ -299,6 +300,8 @@ struct VerifyView: View {
                                  : "Free space is still catching up. That's normal for APFS. It can take a few minutes after a big cleanup.")
                                 .font(Fonts.ui(13)).fixedSize(horizontal: false, vertical: true)
                         }.platinumPanel()
+                    } else if model.recheckAt != nil {
+                        Label("Measuring once more in a minute to confirm.", systemImage: "clock").font(Fonts.ui(13)).foregroundStyle(p.secondary)
                     }
                     if v.trashedBytes > 0 {
                         HStack {

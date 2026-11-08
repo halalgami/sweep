@@ -6,8 +6,6 @@ import UserNotifications
 
 enum Screen: Equatable { case dashboard, plan, execute, verify }
 
-enum InsightsProviderKind: String, CaseIterable, Identifiable { case claude, ollama; var id: String { rawValue } }
-
 @MainActor
 @Observable
 final class AppModel {
@@ -34,6 +32,7 @@ final class AppModel {
     var recheckAt: Date?
     var mascotHop = 0
     var selectedItem: Item?
+    var settingsTab = "general"
 
     // History
     let history: HistoryStore?
@@ -52,7 +51,13 @@ final class AppModel {
     var insightsEnabled: Bool { didSet { prefs.set(insightsEnabled, forKey: "insightsEnabled") } }
     var insightsProvider: InsightsProviderKind { didSet { prefs.set(insightsProvider.rawValue, forKey: "insightsProvider") } }
     var claudeModel: String { didSet { prefs.set(claudeModel, forKey: "claudeModel") } }
+    var claudeCodeModel: String { didSet { prefs.set(claudeCodeModel, forKey: "claudeCodeModel") } }
     var ollamaModel: String { didSet { prefs.set(ollamaModel, forKey: "ollamaModel") } }
+    /// Read from the Keychain once and after each change, not on every redraw.
+    private(set) var hasClaudeKey = false
+    var claudeCodePath: String?
+    var ollamaModels: [String] = []
+    var providerStatus: String?
     var payloadViewed: Bool { didSet { prefs.set(payloadViewed, forKey: "payloadViewed") } }
     var insights: InsightsResponse?
     var insightsError: String?
@@ -64,18 +69,27 @@ final class AppModel {
     var scheduleInstalled = LaunchAgentManager().isInstalled
     var maintenanceMessage: String?
 
-    private let prefs = SettingsStore.defaults
+    private let prefs = AppModel.isDemo ? (UserDefaults(suiteName: "dev.algamthe.sweep.demo") ?? .standard) : SettingsStore.defaults
+
+    #if DEBUG
+    static var isDemo: Bool { ProcessInfo.processInfo.environment["SWEEP_DEMO"] != nil }
+    #else
+    static let isDemo = false
+    #endif
     let home = NSHomeDirectory()
 
     init() {
-        history = try? HistoryStore()
+        history = AppModel.isDemo ? nil : try? HistoryStore()   // the demo never reads or writes your history
         settings = SettingsStore.load()
         flavor = Flavor(rawValue: prefs.string(forKey: "flavor") ?? "") ?? .blueberry
         balloonHelp = prefs.bool(forKey: "balloonHelp")
         lowSpacePercent = prefs.object(forKey: "lowSpacePercent") as? Double ?? 10
         insightsEnabled = prefs.bool(forKey: "insightsEnabled")
-        insightsProvider = InsightsProviderKind(rawValue: prefs.string(forKey: "insightsProvider") ?? "") ?? .claude
+        insightsProvider = InsightsProviderKind(rawValue: prefs.string(forKey: "insightsProvider") ?? "") ?? .default
         claudeModel = prefs.string(forKey: "claudeModel") ?? AnthropicProvider.defaultModel
+        claudeCodeModel = prefs.string(forKey: "claudeCodeModel") ?? ClaudeCodeProvider.defaultModel
+        hasClaudeKey = Keychain.load(account: "anthropic") != nil
+        claudeCodePath = ClaudeCodeProvider.locate()
         ollamaModel = prefs.string(forKey: "ollamaModel") ?? "llama3.1:8b"
         payloadViewed = prefs.bool(forKey: "payloadViewed")
         refreshHistory()
@@ -117,6 +131,9 @@ final class AppModel {
 
     func scan() {
         guard !scanning else { return }
+        #if DEBUG
+        if AppModel.isDemo { DemoTour.load(into: self); return }
+        #endif
         scanning = true
         scanStartedAt = Date()
         warnings = []
@@ -142,18 +159,6 @@ final class AppModel {
             }
             scanning = false
             scanPhase = ""
-            #if DEBUG
-            if DebugSnapshot.prefix != nil {
-                if ProcessInfo.processInfo.environment["SWEEP_APPEARANCE"] == "light" { NSApp.appearance = NSAppearance(named: .aqua) }
-                while measuringFolders { try? await Task.sleep(for: .seconds(1)) }
-                try? await Task.sleep(for: .seconds(2))
-                DebugSnapshot.capture("dashboard")
-                if let id = (report?.items.first { $0.tier == .needsDecision })?.id { selectedItem = item(id: id) }
-                try? await Task.sleep(for: .seconds(1)); DebugSnapshot.capture("detail"); selectedItem = nil
-                openPlan(); try? await Task.sleep(for: .seconds(1)); DebugSnapshot.capture("plan")
-                screen = .dashboard; plan = nil
-            }
-            #endif
         }
     }
 
@@ -257,13 +262,12 @@ final class AppModel {
     func verify() {
         guard let before = volumeBefore else { return }
         verification = Verifier.verification(before: before, after: VolumeAccounting.summary(), results: results)
-        if verification?.lagLikely == true {
-            recheckAt = Date().addingTimeInterval(60)
-            Task {
-                try? await Task.sleep(for: Verifier.recheckDelay)
-                if let b = volumeBefore { verification = Verifier.verification(before: b, after: VolumeAccounting.summary(), results: results) }
-                recheckAt = nil
-            }
+        // APFS often frees space a little later: always measure once more after 60 seconds.
+        recheckAt = Date().addingTimeInterval(60)
+        Task {
+            try? await Task.sleep(for: Verifier.recheckDelay)
+            if let b = volumeBefore { verification = Verifier.verification(before: b, after: VolumeAccounting.summary(), results: results) }
+            recheckAt = nil
         }
     }
 
@@ -298,18 +302,45 @@ final class AppModel {
                                      redactor: Redactor(settings: settings, home: home))
     }
 
-    var claudeKey: String? { Keychain.load(account: "anthropic") }
     func saveClaudeKey(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { Keychain.delete(account: "anthropic") } else { try? Keychain.save(trimmed, account: "anthropic") }
+        hasClaudeKey = Keychain.load(account: "anthropic") != nil
+    }
+
+    /// One line describing the chosen provider, for the payload sheet and the panel.
+    var providerDescription: String {
+        switch insightsProvider {
+        case .claudeCode: "Claude Code (\(claudeCodeModel)), signed in with your Claude account. Sent to Anthropic."
+        case .ollama: "Ollama on this Mac (\(ollamaModel)). Nothing leaves your Mac."
+        case .anthropicAPI: "Anthropic API (\(claudeModel)) with your API key. Sent to Anthropic."
+        }
+    }
+
+    /// Re-detects Claude Code and lists Ollama's installed models.
+    func refreshProviders() {
+        claudeCodePath = ClaudeCodeProvider.locate()
+        providerStatus = nil
+        Task {
+            do {
+                ollamaModels = try await OllamaProvider.installedModels()
+                if insightsProvider == .ollama, !ollamaModels.contains(ollamaModel), let first = ollamaModels.first { ollamaModel = first }
+            } catch {
+                ollamaModels = []
+                if insightsProvider == .ollama { providerStatus = (error as? InsightsError)?.description ?? "\(error)" }
+            }
+        }
     }
 
     func runInsights() {
         guard insightsEnabled, payloadViewed, let summary, !insightsLoading else { return }
         let provider: InsightsProvider
         switch insightsProvider {
-        case .claude:
-            guard let key = claudeKey else { insightsError = InsightsError.notConfigured.description; return }
+        case .claudeCode:
+            guard let exe = claudeCodePath ?? ClaudeCodeProvider.locate() else { insightsError = InsightsError.claudeCodeMissing.description; return }
+            provider = ClaudeCodeProvider(executable: exe, model: claudeCodeModel)
+        case .anthropicAPI:
+            guard let key = Keychain.load(account: "anthropic") else { insightsError = InsightsError.notConfigured.description; return }
             provider = AnthropicProvider(apiKey: key, model: claudeModel)
         case .ollama:
             provider = OllamaProvider(model: ollamaModel)

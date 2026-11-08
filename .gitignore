@@ -6,3 +6,4 @@ DerivedData/
 .swiftpm/
 .superpowers/
 App/Sweep.xcodeproj/
+App/Local.xcconfig

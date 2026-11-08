@@ -4,20 +4,20 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 packages:
   SweepCore:
     path: ..
 settings:
   base:
-    DEVELOPMENT_TEAM: YOURTEAMID
-    CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: "Apple Development"
     ENABLE_HARDENED_RUNTIME: YES
     SWIFT_VERSION: "6.0"
     ARCHS: arm64
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "2"
 targets:
   Sweep:
     type: application
@@ -32,7 +32,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "14.0"
-        NSHumanReadableCopyright: "© halalgami Technological Solutions"
+        NSHumanReadableCopyright: "© 2026 halalgami. MIT License."
         NSAppleEventsUsageDescription: Sweep asks Finder for the list of items in your Trash so it can find files left behind by deleted apps, and to empty the Trash when you ask.
         NSDocumentsFolderUsageDescription: Sweep looks in Documents for idle project build folders and large files. It never reads file contents.
         NSDesktopFolderUsageDescription: Sweep looks on the Desktop for idle project build folders. It never reads file contents.
