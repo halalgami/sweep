@@ -10,6 +10,9 @@ struct SweepCLI {
       sweep plan [--routine] [--json]          Show what a sweep would do (dry run)
       sweep run --routine --yes                Run the routine sweep (requires consent given in the app)
       sweep rules --validate <file>            Check a rules override file
+      sweep insights --payload                 Print the redacted summary an AI would receive
+      sweep insights [--provider claude-code|ollama|anthropic] [--model NAME]
+                                               Ask an AI to explain the scan (sends the redacted summary)
     """
 
     static func main() async {
