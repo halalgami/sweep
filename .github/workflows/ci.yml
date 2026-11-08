@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Test core
+        run: swift test --parallel --num-workers 3
+      - name: Build app (ad-hoc signed)
+        run: |
+          brew install xcodegen
+          cd App && xcodegen generate && cd ..
+          xcodebuild -project App/Sweep.xcodeproj -scheme Sweep -configuration Release \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode build -quiet

@@ -244,3 +244,10 @@ Unit tests in SweepCore for: rule matching, idle detection, size accounting (inc
 ## 17. Left to the builder
 
 Internal module boundaries inside SweepCore, concurrency design for the walker, SQLite schema, rule JSON schema details, treemap algorithm, exact animation curves, test fixture mechanics.
+
+## 18. Owner decisions for 0.2.0 (2026-11-08)
+
+- **Open source** under the MIT license, with halalgami (me@algamthe.dev) as the developer. Bundle ids stay `dev.algamthe.sweep` / `dev.algamthe.sweep.agent`, so existing settings and permissions carry over.
+- **AI providers are the user's choice:** Claude Code (the default; it uses the user's Claude account through `claude -p` with no tools and `--safe-mode`), Ollama (local), or the Anthropic API (key in the Keychain). The output schema limits item ids to the scan's ids.
+- **Signing:** ad-hoc by default so anyone can build; the owner's team goes in a git-ignored `App/Local.xcconfig`. Developer ID notarization is still pending.
+- All 13 minor findings from the 0.1.0 review are fixed with regression tests (`MinorFixTests`).
