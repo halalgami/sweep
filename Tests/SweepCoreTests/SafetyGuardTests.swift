@@ -84,7 +84,7 @@ func testItem(_ path: String, category: String = "t.cache", tier: Tier = .safe, 
         let t = TempDir()
         let wt = t.dir("wt")
         let runner = FakeCommandRunner()
-        runner.stub("/usr/bin/git -C \(wt) status --porcelain", stdout: " M file\n")
+        runner.stub("/usr/bin/git -C \(wt) status --porcelain --ignored", stdout: " M file\n")
         let v = await realGuard(home: t.path, runner: runner).check(testItem(wt, category: "git.worktrees", tier: .idleArtifact,
                                                                               action: .gitWorktreeRemove(repo: t.path)))
         #expect(v != .allowed)
@@ -92,7 +92,9 @@ func testItem(_ path: String, category: String = "t.cache", tier: Tier = .safe, 
 
     @Test func dockerCommandsAreAllowlisted() async {
         let t = TempDir()
-        let g = realGuard(home: t.path)
+        let local = FakeCommandRunner()
+        local.stub("/opt/homebrew/bin/docker context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
+        let g = realGuard(home: t.path, runner: local)
         #expect(await g.check(testItem("docker://builder/default", action: .dockerCommand(arguments: ["buildx", "prune", "-f", "--builder", "default"]))) == .allowed)
         #expect(await g.check(testItem("docker://x", action: .dockerCommand(arguments: ["volume", "prune", "-f"]))) != .allowed)
         #expect(await g.check(testItem("docker://x", action: .dockerCommand(arguments: ["system", "prune", "-af", "--volumes"]))) != .allowed)

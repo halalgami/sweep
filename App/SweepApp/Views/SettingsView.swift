@@ -237,7 +237,7 @@ struct InsightsSettings: View {
                             if !model.ollamaModels.contains(model.ollamaModel) { Text(model.ollamaModel).tag(model.ollamaModel) }
                         }
                     }
-                    Text("Talks to Ollama at 127.0.0.1:11434. Nothing leaves your Mac. Small models (8B) often give vague answers; 14B or larger works better.")
+                    Text("Talks to Ollama at 127.0.0.1:11434. Nothing leaves your Mac, unless you pick a model ending in -cloud, which Ollama runs on its servers. Small models (8B) often give vague answers; 14B or larger works better.")
                         .font(.caption).foregroundStyle(.secondary)
                 case .anthropicAPI:
                     TextField("Model", text: $model.claudeModel)

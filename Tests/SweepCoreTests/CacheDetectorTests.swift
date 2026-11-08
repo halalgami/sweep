@@ -79,6 +79,7 @@ import Testing
         let runner = FakeCommandRunner()
         let d = "/opt/homebrew/bin/docker"
         runner.stub("\(d) info --format {{.ServerVersion}}", stdout: "27.0.1\n")
+        runner.stub("\(d) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
         runner.stub("\(d) buildx ls --format {{.Name}}", stdout: "default\ncolima*\ncolima\n")
         runner.stub("\(d) buildx du --builder default", stdout: "ID RECLAIMABLE SIZE\nabc true 1.2GB\nReclaimable:\t1.2GB\nTotal:\t1.5GB\n")
         runner.stub("\(d) buildx du --builder colima", stdout: "Reclaimable:\t300MB\nTotal:\t300MB\n")
@@ -101,6 +102,7 @@ import Testing
         let runner = FakeCommandRunner()
         let d = "/opt/homebrew/bin/docker"
         runner.stub("\(d) info --format {{.ServerVersion}}", stdout: "27\n")
+        runner.stub("\(d) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
         runner.stub("\(d) images --format {{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}",
                     stdout: "aaa\tpostgres:16\t400MB\nbbb\tredis:7\t120MB\nccc\t<none>:<none>\t50MB\n")
         runner.stub("\(d) ps -a --format {{.Image}}", stdout: "postgres:16\n")

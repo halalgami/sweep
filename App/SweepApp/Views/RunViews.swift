@@ -296,8 +296,8 @@ struct VerifyView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "hourglass")
                             Text(model.recheckAt != nil
-                                 ? "macOS hasn't caught up yet. APFS frees space in the background and snapshots can hold it a little longer. Checking again in a minute…"
-                                 : "Free space is still catching up. That's normal for APFS. It can take a few minutes after a big cleanup.")
+                                 ? "macOS hasn't caught up yet. APFS frees space in the background and snapshots can hold it a little longer. Docker cleanups can also free less than estimated. Checking again in a minute…"
+                                 : "Free space is still catching up. That's normal for APFS. It can take a few minutes after a big cleanup, and Docker cleanups can free less than estimated.")
                                 .font(Fonts.ui(13)).fixedSize(horizontal: false, vertical: true)
                         }.platinumPanel()
                     } else if model.recheckAt != nil {

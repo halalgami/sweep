@@ -30,7 +30,18 @@ public struct InsightsSummary: Codable, Sendable {
     public static func build(report: ScanReport, growth: [String: Double], declines: [String: Int],
                              redactor: Redactor, now: Date = Date(), limit: Int = 40) -> InsightsSummary {
         let top = report.items.sorted { $0.physicalBytes > $1.physicalBytes }.prefix(limit)
+        var counters: [String: Int] = [:]
         let items = top.map { i -> SummaryItem in
+            // Images, VMs, worktrees and loose files are named after the user's work wherever they live.
+            if !i.sensitive, !redactor.revealNames, let label = nameBearing[i.category] {
+                counters[i.category, default: 0] += 1
+                return SummaryItem(
+                    id: i.id, category: i.category, title: String(format: "%@ %02d", label, counters[i.category]!),
+                    path: redactor.generic(path: i.path), physicalBytes: i.physicalBytes, tier: i.tier.rawValue,
+                    rebuildCost: i.rebuildCost.rawValue, actionable: i.action.isActionable,
+                    lastUsedDaysAgo: i.lastUsedSignal.map { max(0, Int(now.timeIntervalSince($0) / 86400)) },
+                    growthPerDay: growth[i.id], evidence: [])
+            }
             let redactedPath = i.sensitive ? "[redacted]" : redactor.redact(path: i.path)
             let pathChanged = !i.sensitive && redactedPath != redactor.tilde(i.path)
             let title = i.sensitive ? "[redacted]"
@@ -53,6 +64,12 @@ public struct InsightsSummary: Codable, Sendable {
             rootCauses: report.rootCauses.map { Hint(kind: $0.kind, detail: redactor.redact(text: $0.detail), relatedCategory: $0.relatedCategory) },
             priorDecisions: declines.filter { ids.contains($0.key) })
     }
+
+    /// Categories whose titles and paths carry the user's own names, with the generic label sent instead.
+    static let nameBearing: [String: String] = [
+        "docker.images": "docker image", "decision.vms": "virtual machine", "git.worktrees": "git worktree",
+        "decision.large-files": "large file", "decision.installers": "installer", "leftovers.trash": "app leftovers",
+    ]
 
     public func json() -> String {
         let e = JSONEncoder(); e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]

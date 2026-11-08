@@ -11,7 +11,7 @@ Pick one in **Settings → Insights**, or with `--provider` on the CLI.
 | Kind (`InsightsProviderKind`) | `.claudeCode` (default) | `.ollama` | `.anthropicAPI` (stored as `"claude"` for 0.1.0 settings) |
 | Code | `ClaudeCodeProvider` | `OllamaProvider` | `AnthropicProvider` |
 | Account | Whatever `claude` is signed in with (Pro/Max subscription or its configured API key) | None | API key, kept in the Keychain |
-| Where data goes | Anthropic | Stays on the Mac (`127.0.0.1:11434`) | Anthropic |
+| Where data goes | Anthropic | Stays on the Mac (`127.0.0.1:11434`), except `-cloud` models, which Ollama runs on its servers | Anthropic |
 | Model | `sonnet` (default), `opus`, `haiku` | Any installed model (listed from `/api/tags`) | `claude-sonnet-5-5` (default) |
 | How | `claude -p` as a child process, no shell | `POST /api/chat` with `format` = schema | `POST /v1/messages` with `output_config.format` = JSON schema, automatic fallback model |
 
@@ -49,6 +49,7 @@ The `Redactor` changes names before anything is sent:
 |---|---|
 | `/Users/you/...` | `~/...` |
 | Other users' folders | `/Users/<user>` |
+| Docker images, VMs, git worktrees, large files, installers and app leftovers (anywhere) | A generic label and path (`virtual machine 01`, `~/Parallels/…/item.pvm`, `docker://image`), no evidence lines, unless you turn on "Send real project names" |
 | Under Documents, Desktop, Downloads and your project roots | Project and file names become `project_01`, `folder`, `file.csv` and so on, unless you turn on "Send real project names". Well-known folder names (`node_modules`, `.venv`, `.git`, …) are kept |
 | Possible personal-data files | `[redacted]`, with category `sensitive-data` |
 

@@ -97,7 +97,7 @@ import Testing
         let g = "/usr/bin/git"
         r.stub("\(g) -C \(repo) worktree list --porcelain",
                stdout: "worktree \(repo)\nHEAD aaa\nbranch refs/heads/main\n\nworktree \(wt)\nHEAD bbb\nbranch refs/heads/feature\n\n")
-        r.stub("\(g) -C \(wt) status --porcelain", stdout: status)
+        r.stub("\(g) -C \(wt) status --porcelain --ignored", stdout: status)
         if upstream { r.stub("\(g) -C \(wt) rev-parse --abbrev-ref --symbolic-full-name @{u}", stdout: "origin/feature\n") }
         r.stub("\(g) -C \(wt) rev-list --count @{u}..HEAD", stdout: ahead)
         r.stub("\(g) -C \(wt) merge-base --is-ancestor HEAD main", stdout: "")

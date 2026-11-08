@@ -112,6 +112,17 @@ public final class SweepScanner: Sendable {
             byPath[item.path] = items.count
             items.append(item)
         }
+        // A possibly-personal file inside another item would vanish with it: the container becomes reveal-only.
+        let sensitivePaths = items.filter { $0.sensitive && $0.path.hasPrefix("/") }.map(\.path)
+        for i in items.indices where items[i].path.hasPrefix("/") && !items[i].sensitive {
+            let prefix = items[i].path + "/"
+            if let inner = sensitivePaths.first(where: { $0.hasPrefix(prefix) }) {
+                items[i].sensitive = true
+                items[i].action = .revealInFinder
+                items[i].defaultSelected = false
+                items[i].evidence.append("Contains \((inner as NSString).lastPathComponent), which may hold personal data. Review it in Finder")
+            }
+        }
         let realPaths = items.filter { $0.path.hasPrefix("/") }.map(\.path)
         items.removeAll { item in
             item.path.hasPrefix("/") && realPaths.contains { $0 != item.path && item.path.hasPrefix($0 + "/") }

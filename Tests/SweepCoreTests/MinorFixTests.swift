@@ -16,6 +16,7 @@ import Testing
     @Test func classicBuilderCacheMeasuredFromSystemDF() async {
         let runner = FakeCommandRunner()
         runner.stub("\(docker) info --format {{.ServerVersion}}", stdout: "27\n")
+        runner.stub("\(docker) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
         runner.stub("\(docker) system df --format {{.Type}}\t{{.Reclaimable}}",
                     stdout: "Images\t2GB (40%)\nContainers\t0B (0%)\nLocal Volumes\t1GB (100%)\nBuild Cache\t3.5GB (100%)\n")
         let out = await DetectorRegistry.detector(for: .docker).detect(rule: rule("docker.builder"), context: makeContext(runner: runner, tools: ["docker"]))
@@ -26,6 +27,7 @@ import Testing
     @Test func multiTagImageIsOneItemRemovedByTags() async {
         let runner = FakeCommandRunner()
         runner.stub("\(docker) info --format {{.ServerVersion}}", stdout: "27\n")
+        runner.stub("\(docker) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
         runner.stub("\(docker) images --format {{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}",
                     stdout: "bbb\tredis:7\t120MB\nbbb\tmyrepo/redis:prod\t120MB\n")
         runner.stub("\(docker) ps -a --format {{.Image}}", stdout: "")
@@ -37,7 +39,9 @@ import Testing
     }
 
     @Test func imageRemovalByTagIsAllowlisted() async {
-        let g = SafetyGuard(context: makeContext(tools: ["docker"]), rules: RuleSet(rules: []),
+        let local = FakeCommandRunner()
+        local.stub("\(docker) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
+        let g = SafetyGuard(context: makeContext(runner: local, tools: ["docker"]), rules: RuleSet(rules: []),
                             protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
         #expect(await g.check(testItem("docker://image/bbb", action: .dockerCommand(arguments: ["image", "rm", "redis:7", "myrepo/redis:prod"]))) == .allowed)
         #expect(await g.check(testItem("docker://image/bbb", action: .dockerCommand(arguments: ["image", "rm", "-f", "redis:7"]))) != .allowed)

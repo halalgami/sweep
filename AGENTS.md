@@ -20,6 +20,7 @@ xcodebuild -project App/Sweep.xcodeproj -scheme Sweep -configuration Debug \
 scripts/build-app.sh      # Release build, prints the .app path
 scripts/install.sh        # Release build -> /Applications/Sweep.app
 scripts/screenshots.sh    # regenerate docs/screenshots from demo data (light + dark)
+scripts/release.sh        # ad-hoc signed DMG + zip + SHA256SUMS in dist/ (then: gh release create)
 ```
 
 Never run several full test suites at the same time; they share temp space and spawn processes.
@@ -53,9 +54,9 @@ Never run several full test suites at the same time; they share temp space and s
 1. **Deterministic code decides what gets deleted.** The AI only explains a redacted summary. It never chooses items, never runs commands and never sees file contents or names of possibly sensitive files.
 2. **No shell, ever.** Every external tool runs through `CommandRunner` with an absolute path and an argv array. Never `sh -c`, never string interpolation into a command.
 3. **Every action is re-checked at execution time** by `SafetyGuard.check`. Never trust scan-time state, and judge idleness against `Date()`, not the scan's `now`.
-4. **Allow lists.** Tool commands: `SafetyGuard.allowedTools`. Docker: `SafetyGuard.dockerAllowed`. These never include volumes, `system prune` or running containers. If you widen an allow list, add a test that a dangerous neighbour is still refused.
-5. **Never-touch locations** live in `ProtectedLocations`: cloud-synced folders, Keychains, Mail/Messages/Safari/Photos/Notes, `/System`, `/usr` (except `/usr/local`), `/bin`, `/sbin`, `/private/etc`, `/Library/Apple`, whole top-level folders and the user's protected list.
-6. **Symlinks:** an item whose path is now a link, or now resolves through one, is blocked.
+4. **Allow lists.** Tool commands: `SafetyGuard.allowedTools`. Docker: `SafetyGuard.dockerAllowed`. These never include volumes, `system prune` or running containers. Docker only ever talks to a local daemon (`DockerDetector.isLocal`, re-checked before each command). If you widen an allow list, add a test that a dangerous neighbour is still refused.
+5. **Never-touch locations** live in `ProtectedLocations`: cloud-synced folders, Keychains, Mail/Messages/Safari/Photos/Notes, `/System`, `/usr` (except `/usr/local`), `/bin`, `/sbin`, `/private/etc`, `/Library/Apple`, whole top-level folders and the user's protected list. An item that *contains* one of these is blocked as well.
+6. **Symlinks and mounts:** an item whose path is now a link, or now resolves through one, is blocked. `deleteTree` works on directory handles with `O_NOFOLLOW` and never crosses into another volume.
 7. **Caches and build folders are deleted; everything else goes to the Trash.** Admin-owned items are only revealed in Finder.
 8. **Physical size, counted once.** Allocated blocks, `(dev, ino)` deduplicated, dataless files as 0, never crossing `st_dev`.
 9. **Routine sweeps need consent for the exact routine list** (a SHA256 fingerprint of the routine rules). Changing which rules are routine pauses routine runs until the user approves again. The agent exits with code 3 without consent.
@@ -98,7 +99,7 @@ Never run several full test suites at the same time; they share temp space and s
 
 ## 6. Testing rules
 
-- Write the failing test first, watch it fail, then fix. Bug fixes always come with a regression test (see `ReviewFixTests.swift` and `MinorFixTests.swift`).
+- Write the failing test first, watch it fail, then fix. Bug fixes always come with a regression test (see `ReviewFixTests.swift`, `MinorFixTests.swift` and `ReleaseReviewTests.swift`).
 - Prefer fakes for tools and processes. Use `TempDir` (in `SizeCalculatorTests.swift`) for real filesystem behaviour (hard links, immutable flags, permissions).
 - Tests must never touch the real home folder, except `trashMovesToTrash`, which cleans up after itself.
 - The suite must be green before every commit: `swift test --parallel --num-workers 3`.

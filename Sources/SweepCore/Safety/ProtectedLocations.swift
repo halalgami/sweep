@@ -45,6 +45,11 @@ public struct ProtectedLocations: Sendable {
         if cloudRoots.contains(where: inside) || path.hasPrefix("\(home)/OneDrive") { return "It's in a cloud-synced folder, which Sweep never touches" }
         if let r = neverTouch.first(where: inside), !(r == "/usr" && inside("/usr/local")) { return "Sweep never touches \(r.replacingOccurrences(of: home, with: "~"))" }
         if wholeRoots.contains(path) { return "Sweep never removes a whole top-level folder" }
+        // Removing a folder removes everything in it, so a protected place *inside* the item blocks it too.
+        let prefix = path.hasSuffix("/") ? path : path + "/"
+        if let r = (userProtected + cloudRoots + neverTouch).first(where: { $0.hasPrefix(prefix) }) {
+            return "It contains \(r.replacingOccurrences(of: home, with: "~")), which Sweep never touches"
+        }
         return nil
     }
 }

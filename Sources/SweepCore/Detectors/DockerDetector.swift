@@ -4,11 +4,30 @@ import Foundation
 struct DockerDetector: Detector {
     static let trimArguments = ["run", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "--", "fstrim", "-av"]
 
+    /// Docker settings from the environment (`DOCKER_HOST`, `DOCKER_CONTEXT`) can point the CLI at another machine.
+    /// Sweep drops them, so the CLI uses the context in ~/.docker/config.json, and `isLocal` checks that one.
+    static var environment: [String: String] {
+        ProcessInfo.processInfo.environment.filter { !["DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"].contains($0.key) }
+    }
+
+    static func run(_ runner: CommandRunner, _ docker: String, _ args: [String], timeout: TimeInterval) async -> CommandResult {
+        await runner.run(docker, args, timeout: timeout, environment: environment, currentDirectory: nil)
+    }
+
+    /// True only when the active Docker context talks to a daemon on this Mac (a unix socket).
+    static func isLocal(_ docker: String, _ runner: CommandRunner) async -> Bool {
+        let r = await run(runner, docker, ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"], timeout: 8)
+        return r.ok && r.stdout.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("unix://")
+    }
+
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         guard let docker = ctx.tools.path(for: "docker") else { return DetectorOutput() }
-        let info = await ctx.runner.run(docker, ["info", "--format", "{{.ServerVersion}}"], timeout: 8)
+        let info = await Self.run(ctx.runner, docker, ["info", "--format", "{{.ServerVersion}}"], timeout: 8)
         guard info.ok else {
             return DetectorOutput(warnings: ["Docker isn't running, so \(rule.title.lowercased()) was skipped. Sweep never starts Docker itself."])
+        }
+        guard await Self.isLocal(docker, ctx.runner) else {
+            return DetectorOutput(warnings: ["Docker is set up to use a daemon that isn't on this Mac, so \(rule.title.lowercased()) was skipped."])
         }
         switch rule.params?["op"] {
         case "builder": return await builders(rule, ctx, docker)
@@ -20,7 +39,7 @@ struct DockerDetector: Detector {
     }
 
     private func builders(_ rule: Rule, _ ctx: DetectionContext, _ docker: String) async -> DetectorOutput {
-        let ls = await ctx.runner.run(docker, ["buildx", "ls", "--format", "{{.Name}}"], timeout: 15)
+        let ls = await Self.run(ctx.runner, docker, ["buildx", "ls", "--format", "{{.Name}}"], timeout: 15)
         var names: [String] = []
         if ls.ok {
             for line in ls.stdout.split(separator: "\n") {
@@ -30,7 +49,7 @@ struct DockerDetector: Detector {
         }
         guard !names.isEmpty else {
             // No buildx: fall back to the classic builder cache.
-            let df = await ctx.runner.run(docker, ["system", "df", "--format", "{{.Type}}\t{{.Reclaimable}}"], timeout: 20)
+            let df = await Self.run(ctx.runner, docker, ["system", "df", "--format", "{{.Type}}\t{{.Reclaimable}}"], timeout: 20)
             let bytes = df.stdout.split(separator: "\n").first { $0.hasPrefix("Build Cache") }
                 .map { Self.parseSize(String($0.split(separator: "\t").last ?? "")) } ?? 0
             var s = SizeResult(); s.physical = bytes; s.logical = bytes
@@ -39,7 +58,7 @@ struct DockerDetector: Detector {
         }
         var out = DetectorOutput()
         for name in names {
-            let du = await ctx.runner.run(docker, ["buildx", "du", "--builder", name], timeout: 30)
+            let du = await Self.run(ctx.runner, docker, ["buildx", "du", "--builder", name], timeout: 30)
             let reclaim = du.stdout.split(separator: "\n").first { $0.hasPrefix("Reclaimable:") }
                 .map { Self.parseSize($0.replacingOccurrences(of: "Reclaimable:", with: "")) } ?? 0
             var s = SizeResult(); s.physical = reclaim; s.logical = reclaim
@@ -51,7 +70,7 @@ struct DockerDetector: Detector {
     }
 
     private func dangling(_ rule: Rule, _ ctx: DetectionContext, _ docker: String) async -> DetectorOutput {
-        let r = await ctx.runner.run(docker, ["images", "-f", "dangling=true", "--format", "{{.ID}}\t{{.Size}}"], timeout: 20)
+        let r = await Self.run(ctx.runner, docker, ["images", "-f", "dangling=true", "--format", "{{.ID}}\t{{.Size}}"], timeout: 20)
         let lines = r.stdout.split(separator: "\n")
         guard r.ok, !lines.isEmpty else { return DetectorOutput() }
         let bytes = lines.reduce(Int64(0)) { $0 + Self.parseSize(String($1.split(separator: "\t").last ?? "")) }
@@ -65,7 +84,7 @@ struct DockerDetector: Detector {
         let candidates = ["~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw",
                           "~/.colima/_lima/colima/diffdisk", "~/.colima/_lima/_disks/colima/datadisk"]
         guard let raw = candidates.flatMap(ctx.expand).first, let meta = ctx.probe.meta(raw) else { return DetectorOutput() }
-        let df = await ctx.runner.run(docker, ["system", "df", "--format", "{{.Size}}"], timeout: 20)
+        let df = await Self.run(ctx.runner, docker, ["system", "df", "--format", "{{.Size}}"], timeout: 20)
         let inUse = df.stdout.split(separator: "\n").reduce(Int64(0)) { $0 + Self.parseSize(String($1)) }
         let reclaim = max(0, meta.allocatedSize - inUse)
         guard reclaim > 1_000_000_000 else { return DetectorOutput() }
@@ -77,8 +96,8 @@ struct DockerDetector: Detector {
     }
 
     private func images(_ rule: Rule, _ ctx: DetectionContext, _ docker: String) async -> DetectorOutput {
-        let r = await ctx.runner.run(docker, ["images", "--format", "{{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}"], timeout: 20)
-        let used = await ctx.runner.run(docker, ["ps", "-a", "--format", "{{.Image}}"], timeout: 20)
+        let r = await Self.run(ctx.runner, docker, ["images", "--format", "{{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}"], timeout: 20)
+        let used = await Self.run(ctx.runner, docker, ["ps", "-a", "--format", "{{.Image}}"], timeout: 20)
         guard r.ok, used.ok else { return DetectorOutput() }
         let inUse = Set(used.stdout.split(separator: "\n").map(String.init))
         // One image can carry several tags; `docker image rm <id>` refuses those, so remove it by all its tags at once.

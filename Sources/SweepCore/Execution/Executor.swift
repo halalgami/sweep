@@ -94,10 +94,13 @@ public final class Executor: Sendable {
         switch item.action {
         case .hardDelete:
             let t = await Self.deleteTreeAsync(item.path)
-            let status: ItemStatus = t.protected == 0 && t.failed == 0 ? .removed
-                : t.removed > 0 ? .partial : t.failed == 0 ? .protectedByMacOS : .failed
+            let clean = t.protected == 0 && t.failed == 0 && t.otherVolume == 0 && !t.leftBehind
+            let status: ItemStatus = clean ? .removed
+                : t.removed > 0 ? .partial : t.failed == 0 && t.protected > 0 ? .protectedByMacOS : .failed
             var msg = "\(t.removed) removed"
             if t.protected > 0 { msg += ", \(t.protected) protected by macOS" }
+            if t.otherVolume > 0 { msg += ", \(t.otherVolume) on another disk left alone" }
+            if t.leftBehind { msg += ", new files appeared while deleting and were left" }
             if t.failed > 0 { msg += ", \(t.failed) failed (\(t.firstError ?? "unknown error"))" }
             // Only a fully removed item counts its scanned size; otherwise count what was actually unlinked.
             let bytes = status == .removed ? item.physicalBytes : min(t.freedBytes, item.physicalBytes)
@@ -110,13 +113,20 @@ public final class Executor: Sendable {
         case let .toolCommand(exe, args):
             let r = await context.runner.run(exe, args, timeout: 1800)
             if !r.stdout.isEmpty { emit(String(r.stdout.suffix(2000))) }
-            return r.ok ? result(.removed, removed: 1, "Done") : result(.failed, failed: 1, Self.tail(r))
+            guard r.ok else { return result(.failed, failed: 1, Self.tail(r)) }
+            // Cleanup commands often remove only part of a cache: count what actually went.
+            guard item.path.hasPrefix("/") else { return result(.removed, removed: 1, "Done") }
+            let after = await Self.measureAsync(context, item.path)
+            let freed = max(0, item.physicalBytes - after)
+            return result(.removed, removed: 1, bytes: freed, "Done, freed \(ByteFormat.string(freed))")
         case let .dockerCommand(args):
             guard let docker = context.tools.path(for: "docker") else { return result(.failed, failed: 1, "Docker isn't installed") }
-            let r = await context.runner.run(docker, args, timeout: 1800)
+            let r = await DockerDetector.run(context.runner, docker, args, timeout: 1800)
             if !r.stdout.isEmpty { emit(String(r.stdout.suffix(2000))) }
             let trimOK = args == DockerDetector.trimArguments && r.stdout.contains("trimmed")
-            return r.ok || trimOK ? result(.removed, removed: 1, "Done") : result(.failed, failed: 1, Self.tail(r))
+            return r.ok || trimOK
+                ? result(.removed, removed: 1, "Done. Docker doesn't report exactly what it freed, so the real gain can be smaller")
+                : result(.failed, failed: 1, Self.tail(r))
         case let .gitWorktreeRemove(repo):
             guard let git = context.tools.path(for: "git") else { return result(.failed, failed: 1, "git isn't installed") }
             let r = await context.runner.run(git, ["-C", repo, "worktree", "remove", item.path], timeout: 300)
@@ -132,7 +142,14 @@ public final class Executor: Sendable {
         return "Exit \(r.exitCode): " + String(s.suffix(400))
     }
 
-    struct TreeResult: Sendable { var removed = 0; var protected = 0; var failed = 0; var freedBytes: Int64 = 0; var firstError: String? }
+    struct TreeResult: Sendable { var removed = 0; var protected = 0; var failed = 0; var otherVolume = 0; var leftBehind = false; var freedBytes: Int64 = 0; var firstError: String? }
+
+    /// Physical size of `path` now (0 when it's gone), measured off the cooperative pool.
+    static func measureAsync(_ ctx: DetectionContext, _ path: String) async -> Int64 {
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .utility).async { cont.resume(returning: ctx.probe.meta(path) == nil ? 0 : ctx.measure(path).physical) }
+        }
+    }
 
     /// `deleteTree` blocks for as long as the filesystem takes; keep it off Swift's cooperative thread pool.
     static func deleteTreeAsync(_ root: String) async -> TreeResult {
@@ -141,8 +158,10 @@ public final class Executor: Sendable {
         }
     }
 
-    /// Bottom-up delete without following symlinks; each path's outcome counted individually.
-    static func deleteTree(_ root: String) -> TreeResult {
+    /// Bottom-up delete, each path's outcome counted individually.
+    /// Works relative to open directory handles (`openat`/`unlinkat` with `O_NOFOLLOW`), so a folder swapped for a
+    /// link mid-delete is never followed, and it never crosses into another volume mounted inside the tree.
+    static func deleteTree(_ root: String, beforeRemovingDirectory: ((String) -> Void)? = nil) -> TreeResult {
         var t = TreeResult()
         func classify(_ err: Int32, _ path: String) {
             if err == EPERM || err == EACCES || err == EROFS { t.protected += 1 } else {
@@ -150,23 +169,57 @@ public final class Executor: Sendable {
                 if t.firstError == nil { t.firstError = "\(path): \(String(cString: strerror(err)))" }
             }
         }
-        func visit(_ path: String) {
+        var rootStat = stat()
+        guard lstat(root, &rootStat) == 0 else { return t }
+        let rootDev = rootStat.st_dev
+        let parentFD = open((root as NSString).deletingLastPathComponent, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+        guard parentFD >= 0 else { classify(errno, root); return t }
+        defer { close(parentFD) }
+
+        func visit(_ dirFD: Int32, _ name: String, _ path: String) {
             var st = stat()
-            guard lstat(path, &st) == 0 else { return }
+            guard fstatat(dirFD, name, &st, AT_SYMLINK_NOFOLLOW) == 0 else { return }
             if st.st_mode & S_IFMT == S_IFDIR {
-                if let kids = RealFileSystemProbe().children(path) {
-                    for k in kids { visit(path + "/" + k) }
-                } else { classify(errno, path); return }
-                if rmdir(path) != 0, errno != ENOTEMPTY, errno != EEXIST { classify(errno, path) }
+                if st.st_dev != rootDev { t.otherVolume += 1; return }   // a mounted volume: never ours to delete
+                let fd = openat(dirFD, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard fd >= 0 else { classify(errno, path); return }
+                var opened = stat()
+                guard fstat(fd, &opened) == 0, opened.st_dev == st.st_dev, opened.st_ino == st.st_ino else {
+                    close(fd); t.failed += 1
+                    if t.firstError == nil { t.firstError = "\(path): changed while deleting" }
+                    return
+                }
+                for kid in Self.names(in: fd) { visit(fd, kid, path + "/" + kid) }
+                close(fd)
+                beforeRemovingDirectory?(path)
+                if unlinkat(dirFD, name, AT_REMOVEDIR) != 0, errno != ENOTEMPTY, errno != EEXIST { classify(errno, path) }
             } else {
-                if unlink(path) == 0 {
+                if unlinkat(dirFD, name, 0) == 0 {
                     t.removed += 1
                     if st.st_nlink <= 1 { t.freedBytes += Int64(st.st_blocks) * 512 }   // other hard links keep the data alive
                 } else { classify(errno, path) }
             }
         }
-        visit(root)
+        visit(parentFD, (root as NSString).lastPathComponent, root)
+        // Nothing failed, yet the folder is still there: something wrote into it while Sweep was deleting.
+        var after = stat()
+        if t.protected == 0, t.failed == 0, t.otherVolume == 0, lstat(root, &after) == 0 { t.leftBehind = true }
         return t
+    }
+
+    /// Entry names of an open directory (without "." and ".."). Reads a duplicate handle so `fd` stays usable.
+    static func names(in fd: Int32) -> [String] {
+        let dupFD = dup(fd)
+        guard dupFD >= 0, let dir = fdopendir(dupFD) else { if dupFD >= 0 { close(dupFD) }; return [] }
+        defer { closedir(dir) }
+        var out: [String] = []
+        while let ent = readdir(dir) {
+            let name = withUnsafeBytes(of: ent.pointee.d_name) { raw in
+                String(decoding: raw.prefix(Int(ent.pointee.d_namlen)), as: UTF8.self)
+            }
+            if name != "." && name != ".." { out.append(name) }
+        }
+        return out
     }
 
     func log(_ line: String) {

@@ -135,6 +135,7 @@ final class AppModel {
         if AppModel.isDemo { DemoTour.load(into: self); return }
         #endif
         scanning = true
+        scanStopped = false
         scanStartedAt = Date()
         warnings = []
         rules = RuleSet.loadOrBundled()
@@ -147,6 +148,16 @@ final class AppModel {
                 case let .phase(p): scanPhase = p
                 case let .warning(w): if !warnings.contains(w) { warnings.append(w) }
                 case let .finished(r):
+                    // A stopped scan has truncated sizes: never record it or let it replace a complete one.
+                    if scanStopped {
+                        if let previous = report {
+                            warnings = previous.warnings + ["The scan was stopped. These are the results of the previous scan."]
+                        } else {
+                            report = r
+                            warnings = r.warnings + ["The scan was stopped, so these results are incomplete. Scan again for the full picture."]
+                        }
+                        continue
+                    }
                     let previous = (try? history?.previousSizes()) ?? [:]
                     report = r
                     warnings = r.warnings
@@ -162,7 +173,9 @@ final class AppModel {
         }
     }
 
-    func cancelScan() { scanner?.cancel(); folderCancel.cancel() }
+    private var scanStopped = false
+
+    func cancelScan() { scanStopped = true; scanner?.cancel(); folderCancel.cancel() }
 
     func measureFolders() {
         guard !measuringFolders else { return }
@@ -312,7 +325,9 @@ final class AppModel {
     var providerDescription: String {
         switch insightsProvider {
         case .claudeCode: "Claude Code (\(claudeCodeModel)), signed in with your Claude account. Sent to Anthropic."
-        case .ollama: "Ollama on this Mac (\(ollamaModel)). Nothing leaves your Mac."
+        case .ollama: ollamaModel.contains("-cloud")
+            ? "Ollama (\(ollamaModel)). This is a cloud model: the summary goes to Ollama's servers."
+            : "Ollama on this Mac (\(ollamaModel)). Nothing leaves your Mac."
         case .anthropicAPI: "Anthropic API (\(claudeModel)) with your API key. Sent to Anthropic."
         }
     }

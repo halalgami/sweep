@@ -43,6 +43,21 @@ public final class Redactor: @unchecked Sendable {
         return tilde(path)
     }
 
+    /// Top-level folders whose names say nothing about the user's clients or projects.
+    static let commonTopFolders: Set<String> = ["Library", "Movies", "Music", "Pictures", "Parallels", "Virtual Machines.localized",
+        ".Trash", "Developer", "Documents", "Desktop", "Downloads", ".docker", ".colima", ".ollama", ".lmstudio"]
+
+    /// A path with every name that could identify something replaced: `~/Parallels/…/item.pvm`, `docker://image`.
+    public func generic(path: String) -> String {
+        guard path.hasPrefix("/") else { return path.components(separatedBy: "/").prefix(3).joined(separator: "/") }
+        let comps = tilde(path).split(separator: "/").map(String.init)
+        guard comps.count > 1, let last = comps.last else { return tilde(path) }
+        let ext = (last as NSString).pathExtension.lowercased()
+        let leaf = ext.isEmpty ? "folder" : "item." + ext
+        let top = comps.count > 2 && Self.commonTopFolders.contains(comps[1]) ? comps[0] + "/" + comps[1] : comps[0]
+        return top + "/…/" + leaf
+    }
+
     /// Replaces home and other users' paths inside free text.
     public func redact(text: String) -> String {
         var s = text.replacingOccurrences(of: home, with: "~")
