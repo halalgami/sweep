@@ -7,3 +7,4 @@ DerivedData/
 .superpowers/
 App/Sweep.xcodeproj/
 App/Local.xcconfig
+dist/

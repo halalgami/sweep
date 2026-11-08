@@ -11,7 +11,7 @@ The look is Mac OS 8 "Platinum" with iMac-era candy buttons ("Gumdrop Platinum")
 > Screenshots use made-up demo data (`SWEEP_DEMO=1`), not a real disk.
 
 - **Deterministic code does everything that touches your disk.** Scanning, measuring, classifying and deleting are tested Swift code. No AI is involved in any of it.
-- **AI is optional, and it only explains.** If you turn it on, an AI reads a *redacted* summary of the finished scan and explains it. It can't delete anything, run commands or read files. You choose the AI: **Claude Code** (your Claude account), **Ollama** (a local model; nothing leaves your Mac) or the **Anthropic API**.
+- **AI is optional, and it only explains.** If you turn it on, an AI reads a *redacted* summary of the finished scan and explains it. It can't delete anything, run commands or read files. You choose the AI: **Claude Code** (your Claude account), **Ollama** (a local model; nothing leaves your Mac unless you pick one of Ollama's `-cloud` models) or the **Anthropic API**.
 - **Safety is checked twice.** Every item is checked again just before it's acted on, not only at scan time.
 
 ---
@@ -38,8 +38,8 @@ The look is Mac OS 8 "Platinum" with iMac-era candy buttons ("Gumdrop Platinum")
 |---|---|---|
 | **Safe caches** | Xcode DerivedData, uv, npm, pnpm, bun, pip, Homebrew, Go, Cargo, Gradle, Playwright/Puppeteer browsers, Hugging Face and Torch caches, Docker build cache | Uses the tool's own cleanup command where one exists (`uv cache prune`, `brew cleanup -s`, `docker buildx prune --builder …`); otherwise deletes the cache folder |
 | **Idle build artifacts** | `node_modules`, `.venv`, `target`, `.next`, `dist`, `.turbo`, `__pycache__` inside projects you haven't touched for a while; finished git worktrees | Checks git (no uncommitted changes, no unpushed commits) and running processes first; asks you about each one |
-| **Your call** | VMs (UTM, Parallels, VMware), iOS simulator runtimes, old Xcode device support, Ollama / LM Studio models, conda envs, TeX Live, large files, old installers, unused Docker images | Explains what it is and when it was last used; moves it to the Trash, never deletes it outright |
-| **Leftovers** | Support files of apps you dragged to the Trash | Matches by bundle id; admin-owned files are only revealed in Finder |
+| **Your call** | VMs (UTM, Parallels, VMware), iOS simulator runtimes, old Xcode device support, Ollama / LM Studio models, conda envs, TeX Live, large files, old installers, unused Docker images | Explains what it is and when it was last used, and asks about each one. Files and folders go to the Trash. Simulator runtimes, Ollama models and Docker images are removed by their own tool (`xcrun simctl`, `ollama rm`, `docker image rm`), which is permanent; the plan says so before you confirm |
+| **Leftovers** | Support files of apps you dragged to the Trash | Matches by bundle id or app name and moves them to the Trash; admin-owned files are only revealed in Finder |
 | **Protected** | APFS clones, SIP-protected files, iCloud placeholders, cloud-synced folders | Listed so the totals add up; never touched |
 
 It also explains **why caches keep coming back**. For example, an MCP server configured with `uvx something@latest` re-resolves on every agent session. Sweep also shows the free-space trend and which items grow fastest.
@@ -55,7 +55,18 @@ It also explains **why caches keep coming back**. For example, an MCP server con
 
 ## Install
 
-Sweep is built from source for now. It isn't notarized yet; see [Status](#status).
+### Download a release
+
+1. Download `Sweep-<version>.dmg` (or `.zip`) from [Releases](https://github.com/halalgami/sweep/releases). It needs macOS 14 or later on Apple Silicon.
+2. Open the DMG and drag **Sweep** onto **Applications**.
+3. Open Sweep. The first time, macOS says it "cannot verify" Sweep, because releases are **not notarized** by Apple yet. If you trust this download, go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. Or, in Terminal:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Sweep.app
+   ```
+
+You can check the download against `SHA256SUMS.txt` on the release page (`shasum -a 256 Sweep-*.dmg`). Releases are ad-hoc signed, so macOS may ask again for Full Disk Access and Finder automation after you install a new version.
+
+### Build from source
 
 **Requirements:** macOS 14 or later on Apple Silicon, Xcode 26 or later (Swift 6), and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
@@ -138,7 +149,7 @@ Insights are off by default (Settings → Insights). Sweep works fully without t
 | Provider | Account | Where the summary goes | Notes |
 |---|---|---|---|
 | **Claude Code** (default) | The account the `claude` CLI is signed in with; no API key | Anthropic | Runs `claude -p` with **no tools**, `--safe-mode` (no CLAUDE.md, hooks, plugins or MCP servers), no saved session, in an empty folder. Models: Sonnet, Opus, Haiku |
-| **Ollama** | None | **Stays on your Mac** (`127.0.0.1:11434`) | Lists your installed models. 14B or larger gives noticeably better answers than 8B |
+| **Ollama** | None | **Stays on your Mac** (`127.0.0.1:11434`), except Ollama's `-cloud` models, which run on Ollama's servers | Lists your installed models. 14B or larger gives noticeably better answers than 8B |
 | **Anthropic API** | API key, stored in the Keychain | Anthropic | Messages API with structured output, default `claude-sonnet-5-5` |
 
 Sweep's code builds the summary, and you can read it with **View payload** before the first request:
@@ -190,9 +201,9 @@ Add or change rules without rebuilding: create `~/Library/Application Support/Sw
 
 ## Status
 
-Version 0.2.0. It works day to day on the author's Mac. Known gaps:
+Version 0.3.0. It works day to day on the author's Mac. Known gaps:
 
-- Not yet Developer ID signed or notarized. Build from source.
+- Not yet Developer ID signed or notarized: releases are ad-hoc signed, so macOS warns on first launch (see [Install](#install)).
 - Apple Silicon only.
 - No automatic updates.
 - Sweep is deliberately outside the Mac App Store, because the sandbox would stop it from doing its job.

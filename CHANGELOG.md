@@ -1,9 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-08)
+
+First public release, with a downloadable, ad-hoc signed build (not notarized). Fixes from a pre-release safety review.
+
+### Fixed (safety)
+- **A folder that contains a protected place is now blocked.** Before, protecting `~/Library/Caches/com.foo/keep` didn't stop Sweep from deleting `~/Library/Caches/com.foo`, with `keep` inside it.
+- **Docker only talks to a daemon on this Mac.** `DOCKER_HOST` and `DOCKER_CONTEXT` are ignored, and the active Docker context must be a local socket, both at scan time and again just before each command. Before, a context pointing at a remote server would have had its build cache and images cleaned.
+- **Git worktrees with personal ignored files are no longer removable.** `git worktree remove` permanently deletes ignored files such as `.env`. Worktrees whose only ignored files are build output (`node_modules`, `.next`, …) can still be removed.
+- **An item that contains a possible personal-data file becomes reveal-only.** Before, the nested file was dropped from the list and deleted with its parent.
+- **Deleting never crosses into another mounted volume** (a disk image or network mount inside `node_modules`, for example), and never follows a folder swapped for a link mid-delete. It now works on directory handles (`openat`/`unlinkat` with `O_NOFOLLOW`).
+- `/etc/...` paths are checked against the never-touch list as `/private/etc/...`. A path that can't be resolved is blocked.
+
+### Fixed (honesty and privacy)
+- Tool cleanups (`uv cache prune`, `brew cleanup`, …) are measured again afterwards and report what they actually freed, not the whole cache size. Docker results say that Docker may free less than estimated.
+- Files written into a folder while Sweep deletes it make the result "partly removed", not "removed".
+- A stopped scan no longer replaces the previous results or gets saved to history; it used to cause false "grew by…" alerts.
+- The AI summary no longer includes Docker image names, VM names, worktree paths, large-file or installer names, or app-leftover names (unless you turn on "Send real project names"). Before, only names under Documents, Desktop, Downloads and your project folders were hidden.
+- README: "Your call" items aren't all moved to the Trash. Simulator runtimes, Ollama models and Docker images are removed by their own tools, which is permanent. Ollama's `-cloud` models run on Ollama's servers, and Settings now says so.
 
 ### Changed
-- **Bundle ids are now `dev.algamthe.sweep` and `dev.algamthe.sweep.agent`** (Keychain service, defaults domain and LaunchAgent label follow). Builds of 0.2.0 or earlier used `dev.algamthe.*`: their settings, saved API key and weekly schedule aren't carried over, and macOS asks again for Full Disk Access and Finder automation.
+- **Bundle ids are now `dev.algamthe.sweep` and `dev.algamthe.sweep.agent`** (Keychain service, defaults domain and LaunchAgent label follow). Builds of 0.2.0 or earlier used the old ids: their settings, saved API key and weekly schedule aren't carried over, and macOS asks again for Full Disk Access and Finder automation.
+- **Downloadable release.** `scripts/release.sh` builds an ad-hoc signed DMG and zip with SHA-256 sums; the README explains how to open an app that isn't notarized.
 - **Scan Again is easy to find.** The top bar shows a coloured "Scan Again ⌘R" button on the dashboard and on the results screen, and the dashboard has a "Scan again" button next to the time of the last scan. Before, the only button was small and grey, and it was missing from the results screen.
 
 ## 0.2.0 (2026-11-08)
