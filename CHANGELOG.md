@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **Bundle ids are now `dev.algamthe.sweep` and `dev.algamthe.sweep.agent`** (Keychain service, defaults domain and LaunchAgent label follow). Builds of 0.2.0 or earlier used `dev.algamthe.*`: their settings, saved API key and weekly schedule aren't carried over, and macOS asks again for Full Disk Access and Finder automation.
 - **Scan Again is easy to find.** The top bar shows a coloured "Scan Again ⌘R" button on the dashboard and on the results screen, and the dashboard has a "Scan again" button next to the time of the last scan. Before, the only button was small and grey, and it was missing from the results screen.
 
 ## 0.2.0 (2026-11-08)
