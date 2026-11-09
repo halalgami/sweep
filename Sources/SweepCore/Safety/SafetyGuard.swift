@@ -25,7 +25,10 @@ public struct SafetyGuard: Sendable {
         case .revealInFinder: return .blocked("This one has to be removed by hand in Finder")
         default: break
         }
-        if let rule = rules.rule(item.category), let b = ItemFactory.blocker(rule, context) { return .blocked(b) }
+        guard let rule = rules.rule(item.category) else {
+            return .blocked("The rule that found this (\(item.category)) is no longer in Sweep's rules, so it's skipped. Scan again.")
+        }
+        if let b = ItemFactory.blocker(rule, context) { return .blocked(b) }
 
         switch item.action {
         case let .dockerCommand(args):

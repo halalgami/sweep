@@ -8,10 +8,14 @@ public struct RoutineManifest: Codable, Sendable, Hashable {
 
     public static func current(rules: RuleSet) -> RoutineManifest {
         let routine = rules.rules.filter(\.isRoutine).sorted { $0.id < $1.id }
-        let canon = routine.map { r in
-            [r.id, r.title, r.kind.rawValue, r.tool ?? "", r.action.type, (r.action.command ?? []).joined(separator: " "),
-             (r.paths ?? []).joined(separator: ","), r.rebuildCost.rawValue, (r.params ?? [:]).sorted { $0.key < $1.key }.map { "\($0)=\($1)" }.joined(separator: ",")]
-                .joined(separator: "|")
+        let canon = routine.map { r -> String in
+            let params: String = (r.params ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            let fields: [String] = [r.id, r.title, r.kind.rawValue, r.tool ?? "", r.action.type, (r.action.command ?? []).joined(separator: " "),
+                                    (r.paths ?? []).joined(separator: ","), r.rebuildCost.rawValue, params,
+                                    "noProcess=" + (r.requiresNoProcess ?? []).joined(separator: ","),
+                                    "appQuit=" + (r.requiresAppQuit ?? []).joined(separator: ","),
+                                    "minBytes=" + (r.minBytes.map { String($0) } ?? "")]
+            return fields.joined(separator: "|")
         }.joined(separator: "\n")
         let hash = SHA256.hash(data: Data(canon.utf8)).map { String(format: "%02x", $0) }.joined()
         return RoutineManifest(ruleIDs: routine.map(\.id), fingerprint: hash)

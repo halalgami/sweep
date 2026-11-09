@@ -19,7 +19,7 @@ public struct IdleChecker: Sendable {
         let n = ctx.settings.idleDays
         var reasons: [String] = []
         var idle = true
-        let src = ctx.measure(project, skipDirNames: ProjectDiscovery.artifactNames.union([".git"])).newestMTime
+        let src = await ctx.measure(project, skipDirNames: ProjectDiscovery.artifactNames.union([".git"])).newestMTime
         func days(_ d: Date) -> Int { max(0, Int(ctx.now.timeIntervalSince(d) / 86400)) }
         if let src, days(src) < n { idle = false; reasons.append("A source file was edited \(days(src)) days ago") }
 

@@ -88,7 +88,7 @@ import Testing
         let t = TempDir()
         let nm = t.dir("loose/node_modules")
         var ctx = makeContext(tools: ["git"]); ctx.home = t.path; ctx.probe = RealFileSystemProbe()
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
         #expect(await g.check(testItem(nm, category: "artifact.projects", tier: .idleArtifact)) != .allowed)
     }
 
@@ -104,7 +104,7 @@ import Testing
         runner.stub("/usr/bin/git -C \(repo) log -1 --format=%ct", stdout: "\(Int(old.timeIntervalSince1970))\n")
         runner.stub("/usr/bin/git -C \(repo) status --porcelain", stdout: " M README.md\n")
         var ctx = makeContext(runner: runner, tools: ["git"]); ctx.home = t.path; ctx.probe = RealFileSystemProbe()
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
         #expect(await g.check(testItem(nm, category: "artifact.projects", tier: .idleArtifact)) != .allowed)
     }
 

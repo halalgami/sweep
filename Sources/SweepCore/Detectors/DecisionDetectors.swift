@@ -35,10 +35,10 @@ struct VMDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         var out = DetectorOutput()
         for path in (rule.paths ?? []).flatMap(ctx.expand) {
-            let size = ctx.measure(path)
+            let size = await ctx.measure(path)
             guard size.physical > 0 else { continue }
             let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
-            let booted = FileWalker.newestMTime(under: path, suffix: ".log", maxDepth: 3, probe: ctx.probe)
+            let booted = await FileWalker.newestMTime(under: path, suffix: ".log", maxDepth: 3, probe: ctx.probe)
             let evidence = booted.map { ["Last booted \(FileWalker.days($0, ctx.now)) days ago"] } ?? ["No boot logs found"]
             out.items.append(ItemFactory.make(rule: rule, path: path, title: "\(name) (VM)", size: size,
                                               action: ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx),
@@ -86,16 +86,17 @@ struct LLMModelsDetector: Detector {
         for base in (rule.paths ?? []).filter({ !$0.contains(".ollama") }).flatMap(ctx.expand) {
             for publisher in ctx.probe.childPaths(base) ?? [] {
                 for model in ctx.probe.childPaths(publisher) ?? [] where ctx.probe.meta(model)?.isDirectory == true {
-                    let size = ctx.measure(model)
+                    let size = await ctx.measure(model)
                     guard size.physical > 0 else { continue }
                     out.items.append(ItemFactory.make(rule: rule, path: model, title: "LM Studio model \((model as NSString).lastPathComponent)",
                                                       size: size, action: ItemFactory.action(for: rule, path: model, toolPath: nil, ctx: ctx)))
-                    bigFiles += FileWalker.files(under: model, maxDepth: 2, probe: ctx.probe).filter { $0.1.logicalSize > 100_000_000 }
+                    bigFiles += await FileWalker.files(under: model, maxDepth: 2, probe: ctx.probe).filter { $0.1.logicalSize > 100_000_000 }
                 }
             }
         }
-        bigFiles += ctx.expand("~/.ollama/models/blobs").flatMap { FileWalker.files(under: $0, maxDepth: 0, probe: ctx.probe) }
-            .filter { $0.1.logicalSize > 100_000_000 }
+        for blobs in ctx.expand("~/.ollama/models/blobs") {
+            bigFiles += await FileWalker.files(under: blobs, maxDepth: 0, probe: ctx.probe).filter { $0.1.logicalSize > 100_000_000 }
+        }
         let dupes = Self.duplicates(bigFiles)
         for i in out.items.indices {
             if let d = dupes.first(where: { $0.0.hasPrefix(out.items[i].path + "/") }) {
@@ -142,7 +143,7 @@ struct LargeFilesDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         var out = DetectorOutput()
         for base in (rule.paths ?? []).flatMap(ctx.expand) {
-            for (path, m) in FileWalker.files(under: base, maxDepth: 6, skipDirs: ProjectDiscovery.artifactNames, probe: ctx.probe)
+            for (path, m) in await FileWalker.files(under: base, maxDepth: 6, skipDirs: ProjectDiscovery.artifactNames, probe: ctx.probe)
             where !m.isDataless && m.allocatedSize >= ctx.settings.largeFileBytes {
                 out.items.append(ItemFactory.make(rule: rule, path: path, title: (path as NSString).lastPathComponent, size: FileWalker.size(m),
                                                   action: ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx),
@@ -159,7 +160,7 @@ struct InstallersDetector: Detector {
         let exts = Set((rule.params?["extensions"] ?? "dmg,pkg,zip").split(separator: ",").map(String.init))
         let olderThan = Int(rule.params?["olderThanDays"] ?? "30") ?? 30
         for base in (rule.paths ?? []).flatMap(ctx.expand) {
-            for (path, m) in FileWalker.files(under: base, maxDepth: 1, probe: ctx.probe)
+            for (path, m) in await FileWalker.files(under: base, maxDepth: 1, probe: ctx.probe)
             where exts.contains((path as NSString).pathExtension.lowercased()) && !m.isDataless
                 && m.allocatedSize >= 1_000_000 && FileWalker.days(m.mtime, ctx.now) >= olderThan {
                 out.items.append(ItemFactory.make(rule: rule, path: path, title: (path as NSString).lastPathComponent, size: FileWalker.size(m),
@@ -180,7 +181,7 @@ struct DeviceSupportDetector: Detector {
             let dirs = (ctx.probe.childPaths(base) ?? []).compactMap { p in ctx.probe.meta(p).flatMap { $0.isDirectory ? (p, $0.mtime) : nil } }
                 .sorted { $0.1 > $1.1 }
             for (path, mtime) in dirs.dropFirst(keep) {
-                let size = ctx.measure(path)
+                let size = await ctx.measure(path)
                 out.items.append(ItemFactory.make(rule: rule, path: path,
                                                   title: "\((base as NSString).lastPathComponent) \((path as NSString).lastPathComponent)",
                                                   size: size, action: ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx),
@@ -196,8 +197,8 @@ struct SensitiveDataDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         var out = DetectorOutput()
         let exts = Set((rule.params?["extensions"] ?? "").split(separator: ",").map(String.init))
-        for project in ProjectDiscovery.projects(ctx) {
-            for (path, m) in FileWalker.files(under: project, maxDepth: 6, skipDirs: ProjectDiscovery.artifactNames.union([".git"]), probe: ctx.probe)
+        for project in await ProjectDiscovery.projects(ctx) {
+            for (path, m) in await FileWalker.files(under: project, maxDepth: 6, skipDirs: ProjectDiscovery.artifactNames.union([".git"]), probe: ctx.probe)
             where exts.contains((path as NSString).pathExtension.lowercased()) && m.logicalSize >= ctx.settings.sensitiveBytes {
                 out.items.append(ItemFactory.make(rule: rule, path: path,
                                                   title: "Data file in \((project as NSString).lastPathComponent): \((path as NSString).lastPathComponent)",

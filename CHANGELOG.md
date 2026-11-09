@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Routine sweep consent now covers each routine rule's "don't run while X is running", "quit X first" and minimum-size settings. Loosening any of them in a rules override pauses routine sweeps until you approve again. Because the fingerprint changed, **routine sweeps approved in 0.3.0 or earlier need approving once more.**
+- An item whose rule was removed (for example from your rules override) after the scan is now skipped, not removed.
+- Shrinking Docker's disk runs `alpine` pinned by digest, so a re-pushed tag can't change what runs with `--privileged`.
+- Scanning no longer ties up Swift's shared threads with long folder walks, so the app stays responsive during big scans.
+- A missing rules bundle now reports an error instead of crashing.
+
 ## 0.3.0 (2026-11-08)
 
 First public release, with a downloadable, ad-hoc signed build (not notarized). Fixes from a pre-release safety review.

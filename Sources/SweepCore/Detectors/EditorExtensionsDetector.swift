@@ -22,7 +22,7 @@ struct EditorExtensionsDetector: Detector {
                 let sorted = versions.sorted { Self.isNewer($0.version, than: $1.version) }
                 let keep = sorted.first { inUse?.contains($0.name) == true } ?? sorted[0]
                 for old in sorted where old.path != keep.path {
-                    let size = ctx.measure(old.path)
+                    let size = await ctx.measure(old.path)
                     out.items.append(ItemFactory.make(
                         rule: rule, path: old.path, title: "\(ext) \(old.version) (old version)", size: size,
                         action: ItemFactory.action(for: rule, path: old.path, toolPath: nil, ctx: ctx),

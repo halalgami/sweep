@@ -76,7 +76,7 @@ Detectors create items with `ItemFactory.make`, which applies the rule's default
 ## Concurrency
 
 - Swift 6 strict concurrency. Core types are `Sendable` structs.
-- Blocking work never runs on the cooperative pool. That covers `deleteTree`, `concurrentPerform` measuring and process waits, which all use `DispatchQueue.global` behind a continuation.
+- Blocking work never runs on the cooperative pool. That covers detector folder walks and sizing (`Blocking.run`), `deleteTree`, `concurrentPerform` measuring and process waits, which all use `DispatchQueue.global` behind a continuation.
 - `AppModel` is `@MainActor @Observable`. Long work runs in `Task`s, and results are assigned back on the main actor.
 - Cancelling uses `SweepScanner.cancel()` and a `CancelBox` that folder walks poll.
 
@@ -86,7 +86,7 @@ Detectors create items with `ItemFactory.make`, which applies the rule's default
 |---|---|---|
 | Scan sizes, decisions, runs | `~/Library/Application Support/Sweep/history.db` (SQLite) | `HistoryStore`, `SQLite` |
 | Settings | `dev.algamthe.sweep` defaults (`.standard` inside the app/agent, a suite from the CLI) | `SettingsStore` |
-| Routine consent | Same defaults domain, a fingerprint of the routine rule ids and actions | `ConsentStore`, `RoutineManifest` |
+| Routine consent | Same defaults domain, a fingerprint of the routine rules (ids, actions, paths, blockers, minimum sizes) | `ConsentStore`, `RoutineManifest` |
 | Anthropic API key | Keychain, service `dev.algamthe.sweep` | `Keychain` |
 | Run logs | `~/Library/Logs/Sweep/` | `Executor.log`, LaunchAgent stdout |
 

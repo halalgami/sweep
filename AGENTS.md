@@ -53,7 +53,7 @@ Never run several full test suites at the same time; they share temp space and s
 
 1. **Deterministic code decides what gets deleted.** The AI only explains a redacted summary. It never chooses items, never runs commands and never sees file contents or names of possibly sensitive files.
 2. **No shell, ever.** Every external tool runs through `CommandRunner` with an absolute path and an argv array. Never `sh -c`, never string interpolation into a command.
-3. **Every action is re-checked at execution time** by `SafetyGuard.check`. Never trust scan-time state, and judge idleness against `Date()`, not the scan's `now`.
+3. **Every action is re-checked at execution time** by `SafetyGuard.check`. An item whose rule no longer exists is blocked. Never trust scan-time state, and judge idleness against `Date()`, not the scan's `now`.
 4. **Allow lists.** Tool commands: `SafetyGuard.allowedTools`. Docker: `SafetyGuard.dockerAllowed`. These never include volumes, `system prune` or running containers. Docker only ever talks to a local daemon (`DockerDetector.isLocal`, re-checked before each command). If you widen an allow list, add a test that a dangerous neighbour is still refused.
 5. **Never-touch locations** live in `ProtectedLocations`: cloud-synced folders, Keychains, Mail/Messages/Safari/Photos/Notes, `/System`, `/usr` (except `/usr/local`), `/bin`, `/sbin`, `/private/etc`, `/Library/Apple`, whole top-level folders and the user's protected list. An item that *contains* one of these is blocked as well.
 6. **Symlinks and mounts:** an item whose path is now a link, or now resolves through one, is blocked. `deleteTree` works on directory handles with `O_NOFOLLOW` and never crosses into another volume.
@@ -85,9 +85,9 @@ Never run several full test suites at the same time; they share temp space and s
 
 ## 5. Gotchas
 
-- **`Bundle.module` is only a last resort.** The embedded agent has no resource bundle beside it, so `RuleSet.locateBundledRules` looks in known places first. SwiftPM's generated `Bundle.module` crashes (rather than throwing) if the bundle is missing, so don't add new uses of it.
+- **`Bundle.module` is not used.** The embedded agent has no resource bundle beside it, and SwiftPM's generated accessor crashes instead of throwing when the bundle is missing. `RuleSet.searchDirs()` lists the places to look and `bundledData()` throws if none has it.
 - **UserDefaults:** inside `Sweep.app` (the app or the embedded agent) settings live in `.standard`, because macOS ignores a suite named after the current bundle id. The CLI reads them as suite `dev.algamthe.sweep`. See `SettingsStore`.
-- **Swift 6 strict concurrency:** use `lock.withLock {}` in async code (not `lock()`/`unlock()`). Copy `var`s into `let`s before sending closures. Long blocking work (`deleteTree`, `concurrentPerform`) runs on `DispatchQueue.global`, never on the cooperative pool.
+- **Swift 6 strict concurrency:** use `lock.withLock {}` in async code (not `lock()`/`unlock()`). Copy `var`s into `let`s before sending closures. Long blocking work (filesystem walks, `measure`, `deleteTree`) runs on `DispatchQueue.global` via `Blocking.run`, never on the cooperative pool. `DetectionContext.measure`, `FileWalker.files`/`newestMTime` and `ProjectDiscovery.projects` are async for that reason; `DeferredFixTests.scanWalksRunOffTheCooperativePool` checks it.
 - **`Scanner` clashes with Foundation's `Scanner`.** Ours is `SweepScanner`.
 - **Speed:** the app scans in two phases (findings first, then folder sizes for the treemap). `getattrlistbulk` reads whole directories in one call, and top-level folders are measured in parallel.
 - **Finder Automation prompt:** the first Trash listing waits for the user's answer (90 s timeout). A timeout is reported as "waiting for you to allow", not as an error.
@@ -99,7 +99,7 @@ Never run several full test suites at the same time; they share temp space and s
 
 ## 6. Testing rules
 
-- Write the failing test first, watch it fail, then fix. Bug fixes always come with a regression test (see `ReviewFixTests.swift`, `MinorFixTests.swift` and `ReleaseReviewTests.swift`).
+- Write the failing test first, watch it fail, then fix. Bug fixes always come with a regression test (see `ReviewFixTests.swift`, `MinorFixTests.swift`, `ReleaseReviewTests.swift` and `DeferredFixTests.swift`).
 - Prefer fakes for tools and processes. Use `TempDir` (in `SizeCalculatorTests.swift`) for real filesystem behaviour (hard links, immutable flags, permissions).
 - Tests must never touch the real home folder, except `trashMovesToTrash`, which cleans up after itself.
 - The suite must be green before every commit: `swift test --parallel --num-workers 3`.
@@ -122,13 +122,6 @@ Rules: release builds never contain a personal team id or organisation name (`co
 
 ## 9. Open work
 
-Known issues found in the 0.3.0 pre-release review and deliberately deferred (all minor). Each should get a failing test first, per section 6.
+All findings from the 0.3.0 review are fixed (see `ReleaseReviewTests.swift` and `DeferredFixTests.swift`).
 
-- **Consent fingerprint misses some rule fields.** `RoutineManifest.current` (`Maintenance/Maintenance.swift`) hashes id, title, kind, tool, action, paths, rebuild cost and params, but not `requiresNoProcess`, `requiresAppQuit` or `minBytes`. Loosening those in a user override doesn't pause routine sweeps.
-- **Removed rule doesn't block its items.** `SafetyGuard.check` only applies rule blockers when `rules.rule(item.category)` exists; an item whose rule was removed from the override still runs. Fixing it means tests that use empty rule sets need a rule.
-- **`fstrim` uses an unpinned image.** `DockerDetector.trimArguments` runs `alpine` by tag; pin it by digest.
-- **Detector filesystem walks run on the cooperative pool.** Long synchronous walks in detectors should move to `DispatchQueue.global`, like `deleteTree`.
-- **`Bundle.module` fallback** in `RuleSet.bundledData()` can crash instead of throwing (see Gotchas).
-
-Not yet done at all: Developer ID signing and notarization, automatic updates, Intel builds.
-
+Not yet done: Developer ID signing and notarization, automatic updates, Intel builds.

@@ -85,7 +85,7 @@ public final class SweepScanner: Sendable {
         items.forEach { emit(.item($0)) }
 
         emit(.phase("Looking for root causes"))
-        let hints = RootCauseAnalyzer().analyze(context: ctx)
+        let hints = await Blocking.run { RootCauseAnalyzer().analyze(context: ctx) }
         let buckets = await bucketsTask?.value ?? []
         let dataUsed = apfs.first { $0.role == "Data" }?.usedBytes ?? volume.usedBytes
         return ScanReport(scannedAt: Date(), volume: volume, apfs: apfs, buckets: buckets,

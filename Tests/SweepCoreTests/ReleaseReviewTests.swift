@@ -37,14 +37,14 @@ import Testing
 
     @Test func dockerCommandBlockedAtRunTimeWhenContextIsRemote() async {
         let ctx = makeContext(runner: dockerRunner(endpoint: "ssh://me@build-box"), tools: ["docker"])
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
         let item = testItem("docker://builder/default", category: "docker.builder", action: .dockerCommand(arguments: ["builder", "prune", "-f"]))
         guard case .blocked = await g.check(item) else { Issue.record("remote docker allowed"); return }
     }
 
     @Test func dockerCommandAllowedWhenContextIsLocal() async {
         let ctx = makeContext(runner: dockerRunner(endpoint: "unix:///Users/me/.colima/default/docker.sock"), tools: ["docker"])
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
         let item = testItem("docker://builder/default", category: "docker.builder", action: .dockerCommand(arguments: ["builder", "prune", "-f"]))
         #expect(await g.check(item) == .allowed)
     }
@@ -85,7 +85,7 @@ import Testing
         r.stub("\(git) -C \(wt) status --porcelain --ignored", stdout: "!! secrets.json\n")
         var ctx = makeContext(runner: r, tools: ["git"])
         ctx.home = t.path; ctx.probe = RealFileSystemProbe()
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
         guard case .blocked = await g.check(testItem(wt, category: "git.worktrees", tier: .idleArtifact, action: .gitWorktreeRemove(repo: t.path))) else {
             Issue.record("worktree with ignored personal file allowed"); return
         }
@@ -137,7 +137,7 @@ import Testing
         let t = TempDir()
         var ctx = makeContext()
         ctx.home = t.path; ctx.probe = RealFileSystemProbe()
-        let g = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
+        let g = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
         guard case .blocked = await g.check(testItem("/etc/hosts")) else { Issue.record("/etc/hosts allowed"); return }
     }
 
@@ -150,7 +150,7 @@ import Testing
         runner.stub("/opt/homebrew/bin/uv cache prune", stdout: "Nothing to prune\n")
         var ctx = makeContext(tools: ["uv"])
         ctx.home = t.path; ctx.probe = RealFileSystemProbe(); ctx.runner = runner
-        let guardian = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
+        let guardian = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: t.path, userProtected: [], iCloudDesktopAndDocuments: false))
         let ex = Executor(guardian: guardian, context: ctx, logURL: t.url.appendingPathComponent("log.txt"))
         let item = testItem(cache, category: "cache.uv", action: .toolCommand(executable: "/opt/homebrew/bin/uv", arguments: ["cache", "prune"]), bytes: 40_960)
         var results: [ItemResult] = []

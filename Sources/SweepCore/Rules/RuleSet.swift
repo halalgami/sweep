@@ -18,15 +18,23 @@ public struct RuleSet: Sendable {
 
     static let resourceBundleName = "Sweep_SweepCore.bundle"
 
-    /// Finds rules.json without relying on `Bundle.module` (which crashes when the bundle isn't where SwiftPM expects,
-    /// e.g. for the agent binary inside Sweep.app/Contents/MacOS).
-    static func locateBundledRules(executableDir: URL?, mainResources: URL?) -> URL? {
+    /// Folders that may hold `Sweep_SweepCore.bundle`: the app's Resources, next to the executable (CLI, agent in
+    /// Contents/MacOS), Contents/Resources next to it, and next to the bundle that contains this code (test runners).
+    /// `Bundle.module` isn't used: its generated accessor crashes instead of throwing when the bundle is missing.
+    static func searchDirs() -> [URL] {
         var dirs: [URL] = []
-        if let mainResources { dirs.append(mainResources) }
-        if let exe = executableDir {
+        if let r = Bundle.main.resourceURL { dirs.append(r) }
+        if let exe = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent() {
             dirs.append(exe)
             dirs.append(exe.deletingLastPathComponent().appendingPathComponent("Resources"))
         }
+        let code = Bundle(for: BundleToken.self).bundleURL
+        dirs.append(code.deletingLastPathComponent())
+        dirs.append(code.appendingPathComponent("Contents/Resources"))
+        return dirs
+    }
+
+    static func locateBundledRules(in dirs: [URL]) -> URL? {
         for d in dirs {
             let bundle = d.appendingPathComponent(resourceBundleName)
             for candidate in [bundle.appendingPathComponent("rules.json"), bundle.appendingPathComponent("Contents/Resources/rules.json")]
@@ -35,13 +43,18 @@ public struct RuleSet: Sendable {
         return nil
     }
 
-    public static func bundledData() throws -> Data {
-        let exeDir = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
-        if let url = locateBundledRules(executableDir: exeDir, mainResources: Bundle.main.resourceURL) {
-            return try Data(contentsOf: url)
-        }
-        guard let url = Bundle.module.url(forResource: "rules", withExtension: "json") else {
-            throw RuleSetError.invalid("bundled rules.json missing")
+    static func locateBundledRules(executableDir: URL?, mainResources: URL?) -> URL? {
+        var dirs: [URL] = []
+        if let mainResources { dirs.append(mainResources) }
+        if let exe = executableDir { dirs += [exe, exe.deletingLastPathComponent().appendingPathComponent("Resources")] }
+        return locateBundledRules(in: dirs)
+    }
+
+    public static func bundledData() throws -> Data { try bundledData(searchDirs: searchDirs()) }
+
+    static func bundledData(searchDirs dirs: [URL]) throws -> Data {
+        guard let url = locateBundledRules(in: dirs) else {
+            throw RuleSetError.invalid("bundled rules.json missing (looked for \(resourceBundleName) in \(dirs.map(\.path).joined(separator: ", ")))")
         }
         return try Data(contentsOf: url)
     }
@@ -92,3 +105,5 @@ public struct RuleSet: Sendable {
         }
     }
 }
+
+private final class BundleToken {}

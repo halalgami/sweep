@@ -41,7 +41,7 @@ import Testing
     @Test func imageRemovalByTagIsAllowlisted() async {
         let local = FakeCommandRunner()
         local.stub("\(docker) context inspect --format {{.Endpoints.docker.Host}}", stdout: "unix:///var/run/docker.sock\n")
-        let g = SafetyGuard(context: makeContext(runner: local, tools: ["docker"]), rules: RuleSet(rules: []),
+        let g = SafetyGuard(context: makeContext(runner: local, tools: ["docker"]), rules: guardRules,
                             protected: ProtectedLocations(home: "/Users/me", userProtected: [], iCloudDesktopAndDocuments: false))
         #expect(await g.check(testItem("docker://image/bbb", action: .dockerCommand(arguments: ["image", "rm", "redis:7", "myrepo/redis:prod"]))) == .allowed)
         #expect(await g.check(testItem("docker://image/bbb", action: .dockerCommand(arguments: ["image", "rm", "-f", "redis:7"]))) != .allowed)
@@ -183,7 +183,7 @@ import Testing
     func executor(home: String, log: URL) -> Executor {
         var ctx = makeContext(tools: ["git"])
         ctx.home = home; ctx.probe = RealFileSystemProbe(); ctx.runner = ProcessCommandRunner()
-        let guardian = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: home, userProtected: [], iCloudDesktopAndDocuments: false))
+        let guardian = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: home, userProtected: [], iCloudDesktopAndDocuments: false))
         return Executor(guardian: guardian, context: ctx, logURL: log)
     }
 }

@@ -67,14 +67,14 @@ struct LeftoversDetector: Detector {
             let id = app.bundleID.lowercased(), appName = app.name.lowercased()
             let squashed = appName.replacingOccurrences(of: " ", with: "")
 
-            func consider(_ path: String, exact: Bool, extra: [String] = [], selected: Bool? = nil) {
+            func consider(_ path: String, exact: Bool, extra: [String] = [], selected: Bool? = nil) async {
                 guard !seen.contains(path), let meta = ctx.probe.meta(path), !meta.isSymlink else { return }
                 if !exact, let sibling {
                     out.warnings.append("Kept \(path): \(sibling.name) from the same vendor is still installed and may share it")
                     return
                 }
                 seen.insert(path)
-                let size = meta.isDirectory ? ctx.measure(path) : FileWalker.size(meta)
+                let size = meta.isDirectory ? await ctx.measure(path) : FileWalker.size(meta)
                 var action = ItemFactory.action(for: rule, path: path, toolPath: nil, ctx: ctx)
                 var evidence = ["Left behind by \(app.name), which is in the Trash"] + extra
                 if path.contains("/Library/Containers/") || path.contains("/Library/Group Containers/") {
@@ -96,7 +96,7 @@ struct LeftoversDetector: Detector {
                 return nil
             }
             for loc in Self.userLocations.map({ "\(ctx.home)/\($0)" }) + Self.systemLocations {
-                for name in ctx.probe.children(loc) ?? [] { if let exact = classify(name) { consider(loc + "/" + name, exact: exact) } }
+                for name in ctx.probe.children(loc) ?? [] { if let exact = classify(name) { await consider(loc + "/" + name, exact: exact) } }
             }
             for loc in Self.dotLocations.map({ "\(ctx.home)/\($0)" }) {
                 for name in ctx.probe.children(loc) ?? [] where classify(name) != nil {
@@ -104,9 +104,9 @@ struct LeftoversDetector: Detector {
                     let recent = ctx.probe.meta(p).map { FileWalker.days($0.mtime, ctx.now) < 30 } ?? false
                     let cli = ctx.tools.path(for: name.lowercased()) != nil
                     if recent || cli {
-                        consider(p, exact: true, extra: ["A command-line tool with this name is installed or this folder was used recently. Check before removing."], selected: false)
+                        await consider(p, exact: true, extra: ["A command-line tool with this name is installed or this folder was used recently. Check before removing."], selected: false)
                     } else {
-                        consider(p, exact: true)
+                        await consider(p, exact: true)
                     }
                 }
             }

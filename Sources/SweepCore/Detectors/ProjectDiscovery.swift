@@ -7,7 +7,12 @@ public enum ProjectDiscovery {
                                                     ".turbo", "dist", "__pycache__", ".transformers_cache"]
     static let neverDescend: Set<String> = ["Library", ".Trash", ".git", "Pods", "DerivedData", "build", ".build"]
 
-    public static func projects(_ ctx: DetectionContext, maxDepth: Int = 4) -> [String] {
+    /// Project folders under the project roots. Walks off the cooperative pool.
+    public static func projects(_ ctx: DetectionContext, maxDepth: Int = 4) async -> [String] {
+        await Blocking.run { walk(ctx, maxDepth: maxDepth) }
+    }
+
+    static func walk(_ ctx: DetectionContext, maxDepth: Int) -> [String] {
         var found: [String] = []
         for root in ctx.settings.projectRoots {
             var queue: [(String, Int)] = [(PathPattern.expandHome(root, home: ctx.home), 0)]

@@ -48,7 +48,7 @@ import Testing
         ctx.home = home
         ctx.probe = RealFileSystemProbe()
         ctx.runner = runner
-        let guardian = SafetyGuard(context: ctx, rules: RuleSet(rules: []), protected: ProtectedLocations(home: home, userProtected: [], iCloudDesktopAndDocuments: false))
+        let guardian = SafetyGuard(context: ctx, rules: guardRules, protected: ProtectedLocations(home: home, userProtected: [], iCloudDesktopAndDocuments: false))
         return Executor(guardian: guardian, context: ctx, logURL: log)
     }
 

@@ -10,7 +10,7 @@ func testItem(_ path: String, category: String = "t.cache", tier: Tier = .safe, 
 }
 
 @Suite struct SafetyGuardTests {
-    func realGuard(home: String, protectedPaths: [String] = [], rules: RuleSet = RuleSet(rules: []),
+    func realGuard(home: String, protectedPaths: [String] = [], rules: RuleSet = guardRules,
                    processes: [RunningProcess] = [], runner: FakeCommandRunner = FakeCommandRunner()) -> SafetyGuard {
         var ctx = makeContext(runner: runner, processes: processes, tools: ["git", "docker"],
                               settings: ScanSettings(projectRoots: [], protectedPaths: protectedPaths))

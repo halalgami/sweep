@@ -147,7 +147,7 @@ public final class Executor: Sendable {
     /// Physical size of `path` now (0 when it's gone), measured off the cooperative pool.
     static func measureAsync(_ ctx: DetectionContext, _ path: String) async -> Int64 {
         await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .utility).async { cont.resume(returning: ctx.probe.meta(path) == nil ? 0 : ctx.measure(path).physical) }
+            DispatchQueue.global(qos: .utility).async { cont.resume(returning: ctx.probe.meta(path) == nil ? 0 : ctx.sizer.measure(path, shouldCancel: ctx.isCancelled).physical) }
         }
     }
 

@@ -30,8 +30,10 @@ public struct DetectionContext: Sendable {
     /// Checked by long walks so "Stop" takes effect promptly.
     public var isCancelled: @Sendable () -> Bool = { false }
     public var sizer: SizeCalculator { SizeCalculator(probe: probe) }
-    public func measure(_ path: String, skipDirNames: Set<String> = []) -> SizeResult {
-        sizer.measure(path, skipDirNames: skipDirNames, shouldCancel: isCancelled)
+    /// Physical size of `path`, measured off the cooperative thread pool (see `Blocking`).
+    public func measure(_ path: String, skipDirNames: Set<String> = []) async -> SizeResult {
+        let sizer = sizer, cancelled = isCancelled
+        return await Blocking.run { sizer.measure(path, skipDirNames: skipDirNames, shouldCancel: cancelled) }
     }
 
     public init(home: String, runner: CommandRunner, tools: ToolLocating, probe: FileSystemProbe,

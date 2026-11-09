@@ -2,7 +2,9 @@ import Foundation
 
 /// Docker cleanup. Never touches running containers or volumes. Only runs when the daemon is already up.
 struct DockerDetector: Detector {
-    static let trimArguments = ["run", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "--", "fstrim", "-av"]
+    /// Pinned by digest (multi-arch index of alpine 3.22) so a re-pushed tag can't change what runs privileged.
+    static let trimImage = "alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f"
+    static let trimArguments = ["run", "--rm", "--privileged", "--pid=host", Self.trimImage, "nsenter", "-t", "1", "-m", "--", "fstrim", "-av"]
 
     /// Docker settings from the environment (`DOCKER_HOST`, `DOCKER_CONTEXT`) can point the CLI at another machine.
     /// Sweep drops them, so the CLI uses the context in ~/.docker/config.json, and `isLocal` checks that one.

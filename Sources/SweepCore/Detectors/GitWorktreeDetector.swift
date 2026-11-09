@@ -5,7 +5,7 @@ struct GitWorktreeDetector: Detector {
     func detect(rule: Rule, context ctx: DetectionContext) async -> DetectorOutput {
         guard let git = ctx.tools.path(for: "git") else { return DetectorOutput() }
         var out = DetectorOutput()
-        for repo in ProjectDiscovery.projects(ctx) where ctx.probe.meta(repo + "/.git")?.isDirectory == true {
+        for repo in await ProjectDiscovery.projects(ctx) where ctx.probe.meta(repo + "/.git")?.isDirectory == true {
             let list = await ctx.runner.run(git, ["-C", repo, "worktree", "list", "--porcelain"], timeout: 15)
             guard list.ok else { continue }
             let paths = list.stdout.components(separatedBy: "\n\n").compactMap { block -> String? in
@@ -26,7 +26,7 @@ struct GitWorktreeDetector: Detector {
                 for base in ["main", "master"] {
                     if await ctx.runner.run(git, ["-C", wt, "merge-base", "--is-ancestor", "HEAD", base], timeout: 15).ok { merged = true; break }
                 }
-                let size = ctx.measure(wt, skipDirNames: [])
+                let size = await ctx.measure(wt, skipDirNames: [])
                 var evidence = ["Clean, no unpushed commits (upstream \(upstream.stdout.trimmingCharacters(in: .whitespacesAndNewlines)))",
                                 "merged to main: \(merged ? "yes" : "no")", "The branch is kept"]
                 // `git worktree remove` permanently deletes ignored files. Build folders are fine; anything else

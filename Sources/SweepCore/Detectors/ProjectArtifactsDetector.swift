@@ -9,8 +9,8 @@ struct ProjectArtifactsDetector: Detector {
             out.warnings.append("Sweep couldn't read \(root.replacingOccurrences(of: ctx.home, with: "~")) (macOS privacy). Allow access when asked, or grant Full Disk Access, to find idle projects there.")
         }
         let names = Set((rule.params?["artifacts"] ?? "").split(separator: ",").map(String.init))
-        for project in ProjectDiscovery.projects(ctx) {
-            let artifacts = findArtifacts(in: project, names: names, ctx: ctx)
+        for project in await ProjectDiscovery.projects(ctx) {
+            let artifacts = await Blocking.run { findArtifacts(in: project, names: names, ctx: ctx) }
             guard !artifacts.isEmpty else { continue }
             let v = await IdleChecker().verdict(project: project, context: ctx)
             guard v.idle else { continue }
@@ -19,7 +19,7 @@ struct ProjectArtifactsDetector: Detector {
             if let c = v.lastCommit { evidence.append("Last commit \(c.formatted(date: .abbreviated, time: .omitted))") }
             evidence.append("No dev server running")
             for path in artifacts {
-                let size = ctx.measure(path)
+                let size = await ctx.measure(path)
                 guard size.physical >= (rule.minBytes ?? 1_000_000) else { continue }
                 let artifact = (path as NSString).lastPathComponent
                 let rel = String(path.dropFirst(project.count + 1))
