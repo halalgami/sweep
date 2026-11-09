@@ -85,7 +85,7 @@ Never run several full test suites at the same time; they share temp space and s
 
 ## 5. Gotchas
 
-- **`Bundle.module` is not used.** The embedded agent has no resource bundle beside it, so `RuleSet.locateBundledRules` looks in known places instead.
+- **`Bundle.module` is only a last resort.** The embedded agent has no resource bundle beside it, so `RuleSet.locateBundledRules` looks in known places first. SwiftPM's generated `Bundle.module` crashes (rather than throwing) if the bundle is missing, so don't add new uses of it.
 - **UserDefaults:** inside `Sweep.app` (the app or the embedded agent) settings live in `.standard`, because macOS ignores a suite named after the current bundle id. The CLI reads them as suite `dev.algamthe.sweep`. See `SettingsStore`.
 - **Swift 6 strict concurrency:** use `lock.withLock {}` in async code (not `lock()`/`unlock()`). Copy `var`s into `let`s before sending closures. Long blocking work (`deleteTree`, `concurrentPerform`) runs on `DispatchQueue.global`, never on the cooperative pool.
 - **`Scanner` clashes with Foundation's `Scanner`.** Ours is `SweepScanner`.
@@ -110,3 +110,25 @@ Never run several full test suites at the same time; they share temp space and s
 - User-facing copy is plain, friendly and specific: say what happens and what it costs. Don't blame the user, and don't use jargon without explaining it.
 - Keep `README.md`, `docs/*.md` and this file accurate when behaviour changes.
 - Bundle ids: app `dev.algamthe.sweep`, agent `dev.algamthe.sweep.agent`. Changing them loses users' settings, consent and permissions.
+
+## 8. Releasing
+
+1. Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `App/project.yml`, update the status line in `README.md`, add a `CHANGELOG.md` entry.
+2. `swift test --parallel --num-workers 3` must be green; commit and push; wait for CI.
+3. `scripts/release.sh` builds the Release app ad-hoc signed (it refuses a build signed with a team) and writes `dist/Sweep-<version>.dmg`, `.zip` and `SHA256SUMS.txt`. `dist/` is git-ignored.
+4. `gh release create v<version> dist/Sweep-<version>.dmg dist/Sweep-<version>.zip dist/SHA256SUMS.txt --target main --title "Sweep <version>" --notes "..."`. Keep the notes short: install steps (including "not notarized → Open Anyway / `xattr -dr com.apple.quarantine`"), what's new, link to the changelog.
+
+Rules: release builds never contain a personal team id or organisation name (`codesign -dv` must show no TeamIdentifier). Never publish screenshots of a real disk; use `scripts/screenshots.sh` (demo data).
+
+## 9. Open work
+
+Known issues found in the 0.3.0 pre-release review and deliberately deferred (all minor). Each should get a failing test first, per section 6.
+
+- **Consent fingerprint misses some rule fields.** `RoutineManifest.current` (`Maintenance/Maintenance.swift`) hashes id, title, kind, tool, action, paths, rebuild cost and params, but not `requiresNoProcess`, `requiresAppQuit` or `minBytes`. Loosening those in a user override doesn't pause routine sweeps.
+- **Removed rule doesn't block its items.** `SafetyGuard.check` only applies rule blockers when `rules.rule(item.category)` exists; an item whose rule was removed from the override still runs. Fixing it means tests that use empty rule sets need a rule.
+- **`fstrim` uses an unpinned image.** `DockerDetector.trimArguments` runs `alpine` by tag; pin it by digest.
+- **Detector filesystem walks run on the cooperative pool.** Long synchronous walks in detectors should move to `DispatchQueue.global`, like `deleteTree`.
+- **`Bundle.module` fallback** in `RuleSet.bundledData()` can crash instead of throwing (see Gotchas).
+
+Not yet done at all: Developer ID signing and notarization, automatic updates, Intel builds.
+
