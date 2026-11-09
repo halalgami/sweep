@@ -8,6 +8,7 @@
 - Shrinking Docker's disk runs `alpine` pinned by digest, so a re-pushed tag can't change what runs with `--privileged`.
 - Scanning no longer ties up Swift's shared threads with long folder walks, so the app stays responsive during big scans.
 - A missing rules bundle now reports an error instead of crashing.
+- Release builds are stripped of debug symbols, which contained the build machine's folder path. `scripts/release.sh` refuses a build that still contains it.
 
 ## 0.3.0 (2026-11-08)
 
