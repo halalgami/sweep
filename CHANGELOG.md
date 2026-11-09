@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2026-11-09)
 
 ### Fixed
 - Routine sweep consent now covers each routine rule's "don't run while X is running", "quit X first" and minimum-size settings. Loosening any of them in a rules override pauses routine sweeps until you approve again. Because the fingerprint changed, **routine sweeps approved in 0.3.0 or earlier need approving once more.**

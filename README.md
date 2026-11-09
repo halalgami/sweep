@@ -201,7 +201,7 @@ Add or change rules without rebuilding: create `~/Library/Application Support/Sw
 
 ## Status
 
-Version 0.3.0. It works day to day on the author's Mac. Known gaps:
+Version 0.3.1. It works day to day on the author's Mac. Known gaps:
 
 - Not yet Developer ID signed or notarized: releases are ad-hoc signed, so macOS warns on first launch (see [Install](#install)).
 - Apple Silicon only.
